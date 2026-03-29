@@ -402,7 +402,7 @@ export function App() {
               <h2 id="focus-history-heading" className="focus-history__title">
                 This week
               </h2>
-              <FocusChart series={chartSeries} />
+              <FocusChart series={chartSeries} themeId={appearance.themeId} />
             </section>
 
             <div className="history-month-recent">
@@ -442,6 +442,7 @@ export function App() {
                     sessions={pieSessions}
                     variant={pieSelectedDateKey ? "day" : "recent"}
                     contextDateLabel={pieContextDateLabel}
+                    themeId={appearance.themeId}
                   />
                 </section>
               )}

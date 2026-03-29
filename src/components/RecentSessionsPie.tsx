@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { FocusSession } from "../types";
+import type { FocusSession, ThemeId } from "../types";
 import { subjectGroupKey, subjectSliceColor } from "../subjectColors";
 
 type Props = {
@@ -8,6 +8,7 @@ type Props = {
   variant?: "recent" | "day";
   /** Locale date string for summaries when `variant` is `day`. */
   contextDateLabel?: string;
+  themeId: ThemeId;
 };
 
 const VIEW = 100;
@@ -75,6 +76,7 @@ export function RecentSessionsPie({
   sessions,
   variant = "recent",
   contextDateLabel,
+  themeId,
 }: Props) {
   const groups = useMemo(() => groupSessionsBySubject(sessions), [sessions]);
 
@@ -128,7 +130,7 @@ export function RecentSessionsPie({
               cx={CX}
               cy={CY}
               r={R}
-              fill={subjectSliceColor(0, 1)}
+              fill={subjectSliceColor(0, 1, themeId)}
             />
           ) : (
             slices.map(({ group, startDeg, sweepDeg, index }) => {
@@ -144,7 +146,7 @@ export function RecentSessionsPie({
                 variant === "day"
                   ? `${labelText} · ${sessNote} · ${formatDuration(group.seconds)} total (${pct}%)`
                   : `${labelText} · ${sessNote} · ${formatDuration(group.seconds)} total (${pct}%) · last ${group.lastDate}`;
-              const fill = subjectSliceColor(index, groups.length);
+              const fill = subjectSliceColor(index, groups.length, themeId);
               return (
                 <path key={group.key} className="recent-pie__slice" d={d} fill={fill}>
                   <title>{title}</title>
@@ -160,7 +162,7 @@ export function RecentSessionsPie({
           const pct =
             totalSec > 0 ? Math.round((group.seconds / totalSec) * 100) : 0;
           const label = group.displayLabel;
-          const swatchColor = subjectSliceColor(index, groups.length);
+          const swatchColor = subjectSliceColor(index, groups.length, themeId);
           const meta =
             variant === "day"
               ? group.sessionCount > 1

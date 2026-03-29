@@ -2,14 +2,16 @@ import { useMemo } from "react";
 import type { DailyFocusBreakdown } from "../streak";
 import { calendarDayParts } from "../streak";
 import { subjectSliceColor } from "../subjectColors";
+import type { ThemeId } from "../types";
 
 type Props = {
   series: DailyFocusBreakdown[];
+  themeId: ThemeId;
 };
 
 const BAR_MAX_H = 96;
 
-export function FocusChart({ series }: Props) {
+export function FocusChart({ series, themeId }: Props) {
   const { maxSec, subjectKeyOrder, subjectLabels, nSubjects, cells } = useMemo(() => {
     const maxSec = series.reduce((m, p) => Math.max(m, p.seconds), 0);
     const scaleMax = Math.max(1, maxSec);
@@ -35,7 +37,7 @@ export function FocusChart({ series }: Props) {
       const segments = partsDesc.map((part, segIdx) => {
         const colorIdx = Math.max(0, subjectKeyOrder.indexOf(part.subjectKey));
         const heightPx = (part.seconds / scaleMax) * BAR_MAX_H;
-        const color = subjectSliceColor(colorIdx, nSubjects);
+        const color = subjectSliceColor(colorIdx, nSubjects, themeId);
         const title = `${part.displayLabel || "No label"} · ${formatDuration(part.seconds)}`;
         return {
           key: `${p.dateKey}-${part.subjectKey}-${segIdx}`,
@@ -58,7 +60,7 @@ export function FocusChart({ series }: Props) {
       nSubjects,
       cells,
     };
-  }, [series]);
+  }, [series, themeId]);
 
   return (
     <div
@@ -105,7 +107,7 @@ export function FocusChart({ series }: Props) {
             <span key={key} className="focus-week__topic-chip">
               <span
                 className="focus-week__topic-swatch"
-                style={{ background: subjectSliceColor(i, nSubjects) }}
+                style={{ background: subjectSliceColor(i, nSubjects, themeId) }}
                 aria-hidden
               />
               <span className="focus-week__topic-name">{subjectLabels.get(key) ?? key}</span>
