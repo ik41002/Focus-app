@@ -9,7 +9,6 @@ import {
   newFocusSessionId,
   nextStreakState,
   todayKey,
-  weekdayShortLabel,
 } from "./streak";
 import type { Appearance, ThemeId } from "./types";
 import { COINS_PER_FOCUS_MINUTE, STREAK_BONUS_COINS } from "./types";
@@ -64,12 +63,8 @@ export function App() {
   const goalSeconds = useMemo(() => Math.max(1, goalMin) * 60, [goalMin]);
 
   const chartSeries = useMemo(
-    () => dailyFocusSeries(state.sessions, new Date(), 14),
+    () => dailyFocusSeries(state.sessions, new Date(), 7),
     [state.sessions]
-  );
-  const chartDayLabels = useMemo(
-    () => chartSeries.map((p) => weekdayShortLabel(p.dateKey)),
-    [chartSeries]
   );
   const recentSessions = useMemo(
     () => [...state.sessions].slice(-12).reverse(),
@@ -384,9 +379,9 @@ export function App() {
           >
             <section className="focus-history" aria-labelledby="focus-history-heading">
               <h2 id="focus-history-heading" className="focus-history__title">
-                Last 14 days
+                This week
               </h2>
-              <FocusChart series={chartSeries} dayLabels={chartDayLabels} />
+              <FocusChart series={chartSeries} />
             </section>
 
             {recentSessions.length > 0 && (

@@ -85,6 +85,15 @@ export function weekdayShortLabel(dateKey: string): string {
   return d.toLocaleDateString(undefined, { weekday: "short" });
 }
 
+/** Weekday + calendar date for history UI (locale-aware). */
+export function calendarDayParts(dateKey: string): { weekday: string; dateLine: string } {
+  const d = new Date(`${dateKey}T12:00:00`);
+  return {
+    weekday: d.toLocaleDateString(undefined, { weekday: "short" }),
+    dateLine: d.toLocaleDateString(undefined, { day: "numeric", month: "short" }),
+  };
+}
+
 export function newFocusSessionId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
