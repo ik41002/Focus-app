@@ -10,6 +10,49 @@ const CX = VIEW / 2;
 const CY = VIEW / 2;
 const R = 38;
 
+/** Normalize label so "Reading", "reading", and "  Reading  " share one slice. */
+function subjectGroupKey(label: string): string {
+  const t = label.trim().replace(/\s+/g, " ");
+  if (!t) return "__unlabeled__";
+  return t.toLowerCase();
+}
+
+type SubjectGroup = {
+  key: string;
+  displayLabel: string;
+  seconds: number;
+  sessionCount: number;
+  lastDate: string;
+};
+
+function groupSessionsBySubject(sessions: FocusSession[]): SubjectGroup[] {
+  const order: string[] = [];
+  const map = new Map<string, SubjectGroup>();
+
+  for (const s of sessions) {
+    const key = subjectGroupKey(s.label);
+    const cur = map.get(key);
+    if (cur) {
+      cur.seconds += s.seconds;
+      cur.sessionCount += 1;
+      if (s.date > cur.lastDate) cur.lastDate = s.date;
+    } else {
+      map.set(key, {
+        key,
+        displayLabel: s.label.trim(),
+        seconds: s.seconds,
+        sessionCount: 1,
+        lastDate: s.date,
+      });
+      order.push(key);
+    }
+  }
+
+  const rows = order.map((k) => map.get(k)!);
+  rows.sort((a, b) => b.seconds - a.seconds);
+  return rows;
+}
+
 function formatDuration(seconds: number) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -43,26 +86,29 @@ function pieSlicePath(startDeg: number, sweepDeg: number): string | null {
 }
 
 export function RecentSessionsPie({ sessions }: Props) {
+  const groups = useMemo(() => groupSessionsBySubject(sessions), [sessions]);
+
   const { totalSec, slices } = useMemo(() => {
-    const totalSec = sessions.reduce((a, s) => a + s.seconds, 0);
+    const totalSec = groups.reduce((a, g) => a + g.seconds, 0);
     let acc = 0;
-    const slices = sessions.map((session, i) => {
-      const isLast = i === sessions.length - 1;
+    const slices = groups.map((group, i) => {
+      const isLast = i === groups.length - 1;
       const startDeg = totalSec > 0 ? (acc / totalSec) * 360 : 0;
-      acc += session.seconds;
+      acc += group.seconds;
       const endDeg =
         totalSec > 0 && isLast ? 360 : totalSec > 0 ? (acc / totalSec) * 360 : 0;
       const sweepDeg = endDeg - startDeg;
-      return { session, startDeg, sweepDeg, index: i };
+      return { group, startDeg, sweepDeg, index: i };
     });
     return { totalSec, slices };
-  }, [sessions]);
+  }, [groups]);
 
   const summaryLabel = useMemo(() => {
     if (sessions.length === 0) return "No recent sessions";
     const t = formatDuration(totalSec);
-    return `Recent focus: ${t} across ${sessions.length} session${sessions.length === 1 ? "" : "s"}`;
-  }, [sessions.length, totalSec]);
+    const topicWord = groups.length === 1 ? "topic" : "topics";
+    return `Recent focus: ${t} across ${sessions.length} session${sessions.length === 1 ? "" : "s"} in ${groups.length} ${topicWord}`;
+  }, [sessions.length, totalSec, groups.length]);
 
   return (
     <div className="recent-pie" role="img" aria-label={summaryLabel}>
@@ -79,7 +125,7 @@ export function RecentSessionsPie({ sessions }: Props) {
               cy={CY}
               r={R}
             />
-          ) : sessions.length === 1 ? (
+          ) : groups.length === 1 ? (
             <circle
               className="recent-pie__slice"
               cx={CX}
@@ -88,21 +134,19 @@ export function RecentSessionsPie({ sessions }: Props) {
               fill={subjectSliceColor(0, 1)}
             />
           ) : (
-            slices.map(({ session, startDeg, sweepDeg, index }) => {
+            slices.map(({ group, startDeg, sweepDeg, index }) => {
               if (sweepDeg <= 0) return null;
               const d = pieSlicePath(startDeg, sweepDeg);
               if (!d) return null;
               const pct =
-                totalSec > 0 ? Math.round((session.seconds / totalSec) * 100) : 0;
-              const title = `${session.label.trim() || "No label"} · ${session.date} · ${formatDuration(session.seconds)} (${pct}%)`;
-              const fill = subjectSliceColor(index, sessions.length);
+                totalSec > 0 ? Math.round((group.seconds / totalSec) * 100) : 0;
+              const labelText = group.displayLabel || "No label";
+              const sessNote =
+                group.sessionCount === 1 ? "1 session" : `${group.sessionCount} sessions`;
+              const title = `${labelText} · ${sessNote} · ${formatDuration(group.seconds)} total (${pct}%) · last ${group.lastDate}`;
+              const fill = subjectSliceColor(index, groups.length);
               return (
-                <path
-                  key={session.id}
-                  className="recent-pie__slice"
-                  d={d}
-                  fill={fill}
-                >
+                <path key={group.key} className="recent-pie__slice" d={d} fill={fill}>
                   <title>{title}</title>
                 </path>
               );
@@ -112,13 +156,17 @@ export function RecentSessionsPie({ sessions }: Props) {
       </div>
 
       <ul className="recent-pie__legend">
-        {slices.map(({ session, index }) => {
+        {slices.map(({ group, index }) => {
           const pct =
-            totalSec > 0 ? Math.round((session.seconds / totalSec) * 100) : 0;
-          const label = session.label.trim();
-          const swatchColor = subjectSliceColor(index, sessions.length);
+            totalSec > 0 ? Math.round((group.seconds / totalSec) * 100) : 0;
+          const label = group.displayLabel;
+          const swatchColor = subjectSliceColor(index, groups.length);
+          const meta =
+            group.sessionCount > 1
+              ? `${group.sessionCount} sessions · last ${group.lastDate}`
+              : group.lastDate;
           return (
-            <li key={session.id} className="recent-pie__legend-row">
+            <li key={group.key} className="recent-pie__legend-row">
               <span
                 className="recent-pie__swatch"
                 style={{ background: swatchColor }}
@@ -126,12 +174,16 @@ export function RecentSessionsPie({ sessions }: Props) {
               />
               <span className="recent-pie__legend-main">
                 <span className="recent-pie__legend-label">
-                  {label || <span className="recent-pie__legend-unlabeled">No label</span>}
+                  {label ? (
+                    label
+                  ) : (
+                    <span className="recent-pie__legend-unlabeled">No label</span>
+                  )}
                 </span>
-                <span className="recent-pie__legend-date">{session.date}</span>
+                <span className="recent-pie__legend-date">{meta}</span>
               </span>
               <span className="recent-pie__legend-stat">
-                <span className="recent-pie__legend-time">{formatDuration(session.seconds)}</span>
+                <span className="recent-pie__legend-time">{formatDuration(group.seconds)}</span>
                 <span className="recent-pie__legend-pct">{pct}%</span>
               </span>
             </li>

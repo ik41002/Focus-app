@@ -402,7 +402,9 @@ export function App() {
                   <h2 id="recent-sessions-heading" className="recent-sessions__title">
                     Recent sessions
                   </h2>
-                  <p className="recent-sessions__subtitle">Share of focus time in your last twelve sessions</p>
+                  <p className="recent-sessions__subtitle">
+                    Last twelve sessions, grouped by topic (same name adds to one slice)
+                  </p>
                   <RecentSessionsPie sessions={recentSessions} />
                 </section>
               )}
