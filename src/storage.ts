@@ -4,10 +4,12 @@ const KEY = "focus-garden-state-v1";
 
 const defaultAppearance: Appearance = {
   themeId: "lavender",
-  fontId: "fredoka",
   mascotId: "sprout",
   roundness: 1,
 };
+
+/** Soft / Quicksand — fixed app typography */
+export const APP_FONT_STACK = '"Quicksand", system-ui, sans-serif';
 
 export const defaultState: PersistedState = {
   version: 1,
@@ -18,19 +20,6 @@ export const defaultState: PersistedState = {
   appearance: defaultAppearance,
   lastPreset: 25,
 };
-
-function fontStack(fontId: Appearance["fontId"]): string {
-  switch (fontId) {
-    case "fredoka":
-      return '"Fredoka", system-ui, sans-serif';
-    case "quicksand":
-      return '"Quicksand", system-ui, sans-serif';
-    case "dmSans":
-      return '"DM Sans", system-ui, sans-serif';
-    default:
-      return '"Fredoka", system-ui, sans-serif';
-  }
-}
 
 export function loadState(): PersistedState {
   try {
@@ -51,5 +40,3 @@ export function loadState(): PersistedState {
 export function saveState(state: PersistedState) {
   localStorage.setItem(KEY, JSON.stringify(state));
 }
-
-export { fontStack };

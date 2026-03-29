@@ -1,12 +1,9 @@
 export type ThemeId = "sakura" | "mint" | "lavender" | "peach" | "sky";
 
-export type FontId = "fredoka" | "quicksand" | "dmSans";
-
 export type MascotId = "sprout" | "star" | "moon" | "cloud";
 
 export interface Appearance {
   themeId: ThemeId;
-  fontId: FontId;
   mascotId: MascotId;
   /** 0 = subtle, 1 = default, 2 = extra round */
   roundness: 0 | 1 | 2;

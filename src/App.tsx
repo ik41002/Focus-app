@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mascot } from "./components/Mascot";
 import "./App.css";
 import { applyThemeToDocument, THEMES } from "./themes";
-import { fontStack, loadState, saveState } from "./storage";
+import { APP_FONT_STACK, loadState, saveState } from "./storage";
 import { nextStreakState, todayKey } from "./streak";
-import type { Appearance, FontId, MascotId, ThemeId } from "./types";
+import type { Appearance, MascotId, ThemeId } from "./types";
 import { COINS_PER_FOCUS_MINUTE, STREAK_BONUS_COINS } from "./types";
 
 type Phase = "idle" | "running";
@@ -46,8 +46,8 @@ export function App() {
 
   useEffect(() => {
     const t = THEMES[appearance.themeId];
-    applyThemeToDocument(t, fontStack(appearance.fontId), appearance.roundness);
-  }, [appearance.themeId, appearance.fontId, appearance.roundness]);
+    applyThemeToDocument(t, APP_FONT_STACK, appearance.roundness);
+  }, [appearance.themeId, appearance.roundness]);
 
   const goalSeconds = useMemo(() => Math.max(1, goalMin) * 60, [goalMin]);
 
@@ -329,28 +329,6 @@ export function App() {
                     type="button"
                     className={`chip ${appearance.mascotId === id ? "chip--on" : ""}`}
                     onClick={() => updateAppearance({ mascotId: id as MascotId })}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="field">
-              <span className="field__label">Font</span>
-              <div className="segmented" role="group" aria-label="Font style">
-                {(
-                  [
-                    ["fredoka", "Rounded"],
-                    ["quicksand", "Soft"],
-                    ["dmSans", "Clean"],
-                  ] as const
-                ).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    data-on={appearance.fontId === id}
-                    onClick={() => updateAppearance({ fontId: id as FontId })}
                   >
                     {label}
                   </button>
