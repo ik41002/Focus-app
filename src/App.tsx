@@ -1,13 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FocusChart } from "./components/FocusChart";
+import { FocusMonthHeatmap } from "./components/FocusMonthHeatmap";
+import { RecentSessionsPie } from "./components/RecentSessionsPie";
 import { Mascot } from "./components/Mascot";
 import "./App.css";
 import { applyThemeToDocument, THEMES } from "./themes";
 import { APP_FONT_STACK, loadState, saveState } from "./storage";
-import { nextStreakState, todayKey } from "./streak";
+import {
+  dailyFocusSeriesBySubject,
+  newFocusSessionId,
+  nextStreakState,
+  todayKey,
+} from "./streak";
 import type { Appearance, ThemeId } from "./types";
 import { COINS_PER_FOCUS_MINUTE, STREAK_BONUS_COINS } from "./types";
 
 type Phase = "idle" | "running";
+type AppTab = "focus" | "history";
 
 const PRESETS = [15, 25, 45] as const;
 
@@ -37,10 +46,14 @@ export function App() {
   const [customMin, setCustomMin] = useState("");
   const [remainingSec, setRemainingSec] = useState(0);
   const [showCustomize, setShowCustomize] = useState(false);
+  const [appTab, setAppTab] = useState<AppTab>("focus");
   const [celebrate, setCelebrate] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [sessionLabel, setSessionLabel] = useState(() => loadState().lastSessionLabel);
   const startedGoalSecRef = useRef(0);
   const tickRef = useRef<number | null>(null);
+  const sessionLabelRef = useRef(sessionLabel);
+  sessionLabelRef.current = sessionLabel;
 
   const appearance = state.appearance;
 
@@ -50,6 +63,34 @@ export function App() {
   }, [appearance.themeId]);
 
   const goalSeconds = useMemo(() => Math.max(1, goalMin) * 60, [goalMin]);
+
+  const chartSeries = useMemo(
+    () => dailyFocusSeriesBySubject(state.sessions, new Date(), 7),
+    [state.sessions]
+  );
+  const recentSessions = useMemo(
+    () => [...state.sessions].slice(-12).reverse(),
+    [state.sessions]
+  );
+
+  const [pieSelectedDateKey, setPieSelectedDateKey] = useState<string | null>(null);
+
+  const pieSessions = useMemo(() => {
+    if (pieSelectedDateKey) {
+      return state.sessions.filter((s) => s.date === pieSelectedDateKey);
+    }
+    return recentSessions;
+  }, [pieSelectedDateKey, state.sessions, recentSessions]);
+
+  const pieContextDateLabel = useMemo(() => {
+    if (!pieSelectedDateKey) return undefined;
+    return new Date(`${pieSelectedDateKey}T12:00:00`).toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }, [pieSelectedDateKey]);
 
   const clearTick = useCallback(() => {
     if (tickRef.current != null) {
@@ -80,6 +121,13 @@ export function App() {
       const streakInfo = nextStreakState(s.streakDays, s.lastFocusDate, todayKey());
       const bonus = streakInfo.streakJustIncreased ? STREAK_BONUS_COINS : 0;
       const earned = baseCoins + bonus;
+      const label = sessionLabelRef.current.trim();
+      const entry = {
+        id: newFocusSessionId(),
+        date: todayKey(),
+        seconds: focusedSeconds,
+        label,
+      };
 
       persist({
         ...s,
@@ -87,6 +135,8 @@ export function App() {
         sparkleCoins: s.sparkleCoins + earned,
         streakDays: streakInfo.streakDays,
         lastFocusDate: streakInfo.lastFocusDate,
+        sessions: [...s.sessions, entry],
+        lastSessionLabel: label,
       });
 
       setCelebrate(true);
@@ -95,7 +145,10 @@ export function App() {
       const streakBit = streakInfo.streakJustIncreased
         ? ` Streak bonus +${STREAK_BONUS_COINS}!`
         : "";
-      showToast(`+${earned} sparkles · ${wholeMinutes} min focus.${streakBit}`);
+      const labelBit = label ? ` · ${label}` : "";
+      showToast(
+        `+${earned} sparkles · ${wholeMinutes} min focus${labelBit}${streakBit ? "." + streakBit : ""}`
+      );
     },
     [persist, showToast]
   );
@@ -170,6 +223,40 @@ export function App() {
           </div>
         </header>
 
+        <div className="app-tabs" role="tablist" aria-label="App sections">
+          <button
+            type="button"
+            role="tab"
+            id="tab-focus"
+            aria-selected={appTab === "focus"}
+            aria-controls="panel-focus"
+            className={`app-tabs__btn ${appTab === "focus" ? "app-tabs__btn--active" : ""}`}
+            onClick={() => setAppTab("focus")}
+          >
+            Focus
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="tab-history"
+            aria-selected={appTab === "history"}
+            aria-controls="panel-history"
+            disabled={phase === "running"}
+            title={phase === "running" ? "Finish or cancel your session to view history" : undefined}
+            className={`app-tabs__btn ${appTab === "history" ? "app-tabs__btn--active" : ""}`}
+            onClick={() => setAppTab("history")}
+          >
+            History
+          </button>
+        </div>
+
+        {appTab === "focus" && (
+          <div
+            className="app-focus-panel"
+            id="panel-focus"
+            role="tabpanel"
+            aria-labelledby="tab-focus"
+          >
         <div className="app__main">
           <div className="app__buddy">
             <Mascot celebrating={celebrate} streakDays={state.streakDays} />
@@ -179,6 +266,24 @@ export function App() {
           <h2 id="timer-heading" className="timer-card__label">
             Session
           </h2>
+          <div className="focus-topic">
+            <label htmlFor="focus-topic" className="focus-topic__label">
+              What are you focusing on?
+            </label>
+            <input
+              id="focus-topic"
+              type="text"
+              className="focus-topic__input"
+              placeholder="e.g. Reading, deep work, course…"
+              maxLength={120}
+              disabled={phase === "running"}
+              value={sessionLabel}
+              onChange={(e) => setSessionLabel(e.target.value)}
+              onBlur={(e) =>
+                persist({ ...stateRef.current, lastSessionLabel: e.currentTarget.value.trim() })
+              }
+            />
+          </div>
           <div className="presets" role="group" aria-label="Duration presets">
             {PRESETS.map((m) => (
               <button
@@ -283,6 +388,67 @@ export function App() {
             <div className="stat-pill__label">Streak</div>
           </div>
         </div>
+          </div>
+        )}
+
+        {appTab === "history" && (
+          <div
+            className="app-history"
+            id="panel-history"
+            role="tabpanel"
+            aria-labelledby="tab-history"
+          >
+            <section className="focus-history" aria-labelledby="focus-history-heading">
+              <h2 id="focus-history-heading" className="focus-history__title">
+                This week
+              </h2>
+              <FocusChart series={chartSeries} themeId={appearance.themeId} />
+            </section>
+
+            <div className="history-month-recent">
+              <section className="focus-history focus-history--month" aria-labelledby="focus-month-heading">
+                <h2 id="focus-month-heading" className="focus-history__title">
+                  This month
+                </h2>
+                <FocusMonthHeatmap
+                  sessions={state.sessions}
+                  selectedDateKey={pieSelectedDateKey}
+                  onSelectDate={setPieSelectedDateKey}
+                />
+              </section>
+
+              {(pieSelectedDateKey != null || recentSessions.length > 0) && (
+                <section
+                  className="recent-sessions recent-sessions--aside"
+                  aria-labelledby="recent-sessions-heading"
+                >
+                  <h2 id="recent-sessions-heading" className="recent-sessions__title">
+                    {pieSelectedDateKey ? "Day focus" : "Recent sessions"}
+                  </h2>
+                  <p className="recent-sessions__subtitle">
+                    {pieSelectedDateKey ? (
+                      <>
+                        Topics on {pieContextDateLabel}. Tap the same day again to show recent
+                        sessions.
+                      </>
+                    ) : (
+                      <>
+                        Last twelve sessions, grouped by topic (same name adds to one slice). Tap a
+                        day in the calendar to see that day instead.
+                      </>
+                    )}
+                  </p>
+                  <RecentSessionsPie
+                    sessions={pieSessions}
+                    variant={pieSelectedDateKey ? "day" : "recent"}
+                    contextDateLabel={pieContextDateLabel}
+                    themeId={appearance.themeId}
+                  />
+                </section>
+              )}
+            </div>
+          </div>
+        )}
 
         <button
           type="button"

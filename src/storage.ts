@@ -10,26 +10,70 @@ const defaultAppearance: Appearance = {
 export const APP_FONT_STACK = '"Quicksand", system-ui, sans-serif';
 
 export const defaultState: PersistedState = {
-  version: 1,
+  version: 2,
   totalFocusSeconds: 0,
   sparkleCoins: 0,
   streakDays: 0,
   lastFocusDate: null,
   appearance: defaultAppearance,
   lastPreset: 25,
+  sessions: [],
+  lastSessionLabel: "",
 };
+
+function migrate(raw: unknown): PersistedState {
+  const base = { ...defaultState, appearance: { ...defaultAppearance } };
+  if (!raw || typeof raw !== "object") return base;
+  const p = raw as Record<string, unknown>;
+  const ver = p.version;
+  if (ver !== 1 && ver !== 2) return base;
+
+  const appearance = {
+    ...defaultAppearance,
+    ...(typeof p.appearance === "object" && p.appearance !== null
+      ? (p.appearance as Appearance)
+      : {}),
+  };
+
+  if (ver === 1) {
+    return {
+      ...base,
+      totalFocusSeconds: typeof p.totalFocusSeconds === "number" ? p.totalFocusSeconds : 0,
+      sparkleCoins: typeof p.sparkleCoins === "number" ? p.sparkleCoins : 0,
+      streakDays: typeof p.streakDays === "number" ? p.streakDays : 0,
+      lastFocusDate:
+        typeof p.lastFocusDate === "string" || p.lastFocusDate === null
+          ? (p.lastFocusDate as string | null)
+          : null,
+      lastPreset: typeof p.lastPreset === "number" ? p.lastPreset : 25,
+      appearance,
+      sessions: [],
+      lastSessionLabel: "",
+    };
+  }
+
+  const sessions = Array.isArray(p.sessions) ? (p.sessions as PersistedState["sessions"]) : [];
+  return {
+    ...base,
+    totalFocusSeconds: typeof p.totalFocusSeconds === "number" ? p.totalFocusSeconds : 0,
+    sparkleCoins: typeof p.sparkleCoins === "number" ? p.sparkleCoins : 0,
+    streakDays: typeof p.streakDays === "number" ? p.streakDays : 0,
+    lastFocusDate:
+      typeof p.lastFocusDate === "string" || p.lastFocusDate === null
+        ? (p.lastFocusDate as string | null)
+        : null,
+    lastPreset: typeof p.lastPreset === "number" ? p.lastPreset : 25,
+    appearance,
+    sessions,
+    lastSessionLabel: typeof p.lastSessionLabel === "string" ? p.lastSessionLabel : "",
+  };
+}
 
 export function loadState(): PersistedState {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return { ...defaultState, appearance: { ...defaultAppearance } };
-    const parsed = JSON.parse(raw) as PersistedState;
-    if (parsed.version !== 1) return { ...defaultState, appearance: { ...defaultAppearance } };
-    return {
-      ...defaultState,
-      ...parsed,
-      appearance: { ...defaultAppearance, ...parsed.appearance },
-    };
+    return migrate(JSON.parse(raw));
   } catch {
     return { ...defaultState, appearance: { ...defaultAppearance } };
   }
