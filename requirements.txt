@@ -1,0 +1,10 @@
+# Python dependencies for future tooling, scripts, or backend features.
+# The Focus app UI is Node.js — use `npm install` for that.
+#
+# Setup (from repo root):
+#   python -m venv .venv
+#   .venv\Scripts\activate
+#   pip install -r requirements.txt
+#
+# Add packages below as you need them, for example:
+# requests>=2.31.0
