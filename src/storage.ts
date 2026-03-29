@@ -5,7 +5,6 @@ const KEY = "focus-garden-state-v1";
 const defaultAppearance: Appearance = {
   themeId: "lavender",
   mascotId: "sprout",
-  roundness: 1,
 };
 
 /** Soft / Quicksand — fixed app typography */

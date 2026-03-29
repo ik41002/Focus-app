@@ -46,8 +46,8 @@ export function App() {
 
   useEffect(() => {
     const t = THEMES[appearance.themeId];
-    applyThemeToDocument(t, APP_FONT_STACK, appearance.roundness);
-  }, [appearance.themeId, appearance.roundness]);
+    applyThemeToDocument(t, APP_FONT_STACK);
+  }, [appearance.themeId]);
 
   const goalSeconds = useMemo(() => Math.max(1, goalMin) * 60, [goalMin]);
 
@@ -331,22 +331,6 @@ export function App() {
                     onClick={() => updateAppearance({ mascotId: id as MascotId })}
                   >
                     {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="field">
-              <span className="field__label">Roundness</span>
-              <div className="segmented" role="group" aria-label="UI roundness">
-                {([0, 1, 2] as const).map((r, i) => (
-                  <button
-                    key={r}
-                    type="button"
-                    data-on={appearance.roundness === r}
-                    onClick={() => updateAppearance({ roundness: r })}
-                  >
-                    {["Calm", "Cozy", "Bubble"][i]}
                   </button>
                 ))}
               </div>

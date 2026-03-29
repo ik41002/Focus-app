@@ -100,10 +100,8 @@ export const THEMES: Record<ThemeId, ThemeTokens> = {
   },
 };
 
-export function applyThemeToDocument(tokens: ThemeTokens, fontFamily: string, roundness: 0 | 1 | 2) {
+export function applyThemeToDocument(tokens: ThemeTokens, fontFamily: string) {
   const root = document.documentElement;
-  const radii = ["14px", "18px", "26px"] as const;
-  const r = radii[roundness];
   root.style.setProperty("--color-bg-1", tokens.bg1);
   root.style.setProperty("--color-bg-2", tokens.bg2);
   root.style.setProperty("--color-bg-3", tokens.bg3);
@@ -117,8 +115,8 @@ export function applyThemeToDocument(tokens: ThemeTokens, fontFamily: string, ro
   root.style.setProperty("--color-success", tokens.success);
   root.style.setProperty("--color-coin", tokens.coin);
   root.style.setProperty("--font-body", fontFamily);
-  root.style.setProperty("--radius-sm", roundness === 2 ? "12px" : "10px");
-  root.style.setProperty("--radius-md", r);
-  root.style.setProperty("--radius-lg", roundness === 2 ? "32px" : roundness === 1 ? "24px" : "20px");
+  root.style.setProperty("--radius-sm", "12px");
+  root.style.setProperty("--radius-md", "26px");
+  root.style.setProperty("--radius-lg", "32px");
   root.style.setProperty("--radius-pill", "999px");
 }
