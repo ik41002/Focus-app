@@ -100,3 +100,46 @@ export function newFocusSessionId(): string {
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
+
+/** One slot in a Sun–Sat month grid; `dateKey` null = padding outside the month. */
+export interface MonthCalendarCell {
+  dateKey: string | null;
+  seconds: number;
+}
+
+/** Focus seconds per day for `year` / `monthIndex` (0–11), plus a padded Sun–Sat grid. */
+export function monthFocusCalendar(
+  sessions: FocusSession[],
+  year: number,
+  monthIndex: number
+): { cells: MonthCalendarCell[]; maxSeconds: number } {
+  const prefix = `${year}-${String(monthIndex + 1).padStart(2, "0")}-`;
+  const byDay = new Map<string, number>();
+  for (const s of sessions) {
+    if (!s.date.startsWith(prefix)) continue;
+    byDay.set(s.date, (byDay.get(s.date) ?? 0) + s.seconds);
+  }
+
+  let maxSeconds = 0;
+  for (const v of byDay.values()) maxSeconds = Math.max(maxSeconds, v);
+
+  const numDays = new Date(year, monthIndex + 1, 0).getDate();
+  const leading = new Date(year, monthIndex, 1).getDay();
+  const cells: MonthCalendarCell[] = [];
+
+  for (let i = 0; i < leading; i++) {
+    cells.push({ dateKey: null, seconds: 0 });
+  }
+  for (let day = 1; day <= numDays; day++) {
+    const dk = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const seconds = byDay.get(dk) ?? 0;
+    cells.push({ dateKey: dk, seconds });
+  }
+  const total = leading + numDays;
+  const trailing = (7 - (total % 7)) % 7;
+  for (let i = 0; i < trailing; i++) {
+    cells.push({ dateKey: null, seconds: 0 });
+  }
+
+  return { cells, maxSeconds };
+}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FocusChart } from "./components/FocusChart";
+import { FocusMonthHeatmap } from "./components/FocusMonthHeatmap";
 import { Mascot } from "./components/Mascot";
 import "./App.css";
 import { applyThemeToDocument, THEMES } from "./themes";
@@ -382,6 +383,13 @@ export function App() {
                 This week
               </h2>
               <FocusChart series={chartSeries} />
+            </section>
+
+            <section className="focus-history" aria-labelledby="focus-month-heading">
+              <h2 id="focus-month-heading" className="focus-history__title">
+                This month
+              </h2>
+              <FocusMonthHeatmap sessions={state.sessions} />
             </section>
 
             {recentSessions.length > 0 && (
