@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FocusChart } from "./components/FocusChart";
 import { FocusMonthHeatmap } from "./components/FocusMonthHeatmap";
+import { RecentSessionsPie } from "./components/RecentSessionsPie";
 import { Mascot } from "./components/Mascot";
 import "./App.css";
 import { applyThemeToDocument, THEMES } from "./themes";
@@ -401,23 +402,8 @@ export function App() {
                   <h2 id="recent-sessions-heading" className="recent-sessions__title">
                     Recent sessions
                   </h2>
-                  <ul className="recent-sessions__list">
-                    {recentSessions.map((sess) => (
-                      <li key={sess.id} className="recent-sessions__item">
-                        <span className="recent-sessions__time">{formatHoursMinutes(sess.seconds)}</span>
-                        <span className="recent-sessions__meta">
-                          <span className="recent-sessions__date">{sess.date}</span>
-                          {sess.label ? (
-                            <span className="recent-sessions__label">{sess.label}</span>
-                          ) : (
-                            <span className="recent-sessions__label recent-sessions__label--empty">
-                              No label
-                            </span>
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="recent-sessions__subtitle">Share of focus time in your last twelve sessions</p>
+                  <RecentSessionsPie sessions={recentSessions} />
                 </section>
               )}
             </div>
