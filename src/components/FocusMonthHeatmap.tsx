@@ -25,7 +25,7 @@ export function FocusMonthHeatmap({ sessions }: Props) {
   const monthLabel = useMemo(
     () =>
       new Date(viewY, viewM, 1).toLocaleDateString(undefined, {
-        month: "long",
+        month: "short",
         year: "numeric",
       }),
     [viewY, viewM]
@@ -62,7 +62,7 @@ export function FocusMonthHeatmap({ sessions }: Props) {
   };
 
   return (
-    <div className="focus-month" role="img" aria-label={`Focus heatmap for ${monthLabel}`}>
+    <div className="focus-month focus-month--compact" role="img" aria-label={`Focus heatmap for ${monthLabel}`}>
       <div className="focus-month__toolbar">
         <button
           type="button"

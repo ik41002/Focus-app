@@ -385,37 +385,42 @@ export function App() {
               <FocusChart series={chartSeries} />
             </section>
 
-            <section className="focus-history" aria-labelledby="focus-month-heading">
-              <h2 id="focus-month-heading" className="focus-history__title">
-                This month
-              </h2>
-              <FocusMonthHeatmap sessions={state.sessions} />
-            </section>
-
-            {recentSessions.length > 0 && (
-              <section className="recent-sessions" aria-labelledby="recent-sessions-heading">
-                <h2 id="recent-sessions-heading" className="recent-sessions__title">
-                  Recent sessions
+            <div className="history-month-recent">
+              <section className="focus-history focus-history--month" aria-labelledby="focus-month-heading">
+                <h2 id="focus-month-heading" className="focus-history__title">
+                  This month
                 </h2>
-                <ul className="recent-sessions__list">
-                  {recentSessions.map((sess) => (
-                    <li key={sess.id} className="recent-sessions__item">
-                      <span className="recent-sessions__time">{formatHoursMinutes(sess.seconds)}</span>
-                      <span className="recent-sessions__meta">
-                        <span className="recent-sessions__date">{sess.date}</span>
-                        {sess.label ? (
-                          <span className="recent-sessions__label">{sess.label}</span>
-                        ) : (
-                          <span className="recent-sessions__label recent-sessions__label--empty">
-                            No label
-                          </span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <FocusMonthHeatmap sessions={state.sessions} />
               </section>
-            )}
+
+              {recentSessions.length > 0 && (
+                <section
+                  className="recent-sessions recent-sessions--aside"
+                  aria-labelledby="recent-sessions-heading"
+                >
+                  <h2 id="recent-sessions-heading" className="recent-sessions__title">
+                    Recent sessions
+                  </h2>
+                  <ul className="recent-sessions__list">
+                    {recentSessions.map((sess) => (
+                      <li key={sess.id} className="recent-sessions__item">
+                        <span className="recent-sessions__time">{formatHoursMinutes(sess.seconds)}</span>
+                        <span className="recent-sessions__meta">
+                          <span className="recent-sessions__date">{sess.date}</span>
+                          {sess.label ? (
+                            <span className="recent-sessions__label">{sess.label}</span>
+                          ) : (
+                            <span className="recent-sessions__label recent-sessions__label--empty">
+                              No label
+                            </span>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </div>
           </div>
         )}
 
