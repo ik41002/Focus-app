@@ -1,13 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FocusChart } from "./components/FocusChart";
 import { Mascot } from "./components/Mascot";
 import "./App.css";
 import { applyThemeToDocument, THEMES } from "./themes";
 import { APP_FONT_STACK, loadState, saveState } from "./storage";
-import { nextStreakState, todayKey } from "./streak";
+import {
+  dailyFocusSeries,
+  newFocusSessionId,
+  nextStreakState,
+  todayKey,
+  weekdayShortLabel,
+} from "./streak";
 import type { Appearance, ThemeId } from "./types";
 import { COINS_PER_FOCUS_MINUTE, STREAK_BONUS_COINS } from "./types";
 
 type Phase = "idle" | "running";
+type AppTab = "focus" | "history";
 
 const PRESETS = [15, 25, 45] as const;
 
@@ -37,10 +45,14 @@ export function App() {
   const [customMin, setCustomMin] = useState("");
   const [remainingSec, setRemainingSec] = useState(0);
   const [showCustomize, setShowCustomize] = useState(false);
+  const [appTab, setAppTab] = useState<AppTab>("focus");
   const [celebrate, setCelebrate] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [sessionLabel, setSessionLabel] = useState(() => loadState().lastSessionLabel);
   const startedGoalSecRef = useRef(0);
   const tickRef = useRef<number | null>(null);
+  const sessionLabelRef = useRef(sessionLabel);
+  sessionLabelRef.current = sessionLabel;
 
   const appearance = state.appearance;
 
@@ -50,6 +62,19 @@ export function App() {
   }, [appearance.themeId]);
 
   const goalSeconds = useMemo(() => Math.max(1, goalMin) * 60, [goalMin]);
+
+  const chartSeries = useMemo(
+    () => dailyFocusSeries(state.sessions, new Date(), 14),
+    [state.sessions]
+  );
+  const chartDayLabels = useMemo(
+    () => chartSeries.map((p) => weekdayShortLabel(p.dateKey)),
+    [chartSeries]
+  );
+  const recentSessions = useMemo(
+    () => [...state.sessions].slice(-12).reverse(),
+    [state.sessions]
+  );
 
   const clearTick = useCallback(() => {
     if (tickRef.current != null) {
@@ -80,6 +105,13 @@ export function App() {
       const streakInfo = nextStreakState(s.streakDays, s.lastFocusDate, todayKey());
       const bonus = streakInfo.streakJustIncreased ? STREAK_BONUS_COINS : 0;
       const earned = baseCoins + bonus;
+      const label = sessionLabelRef.current.trim();
+      const entry = {
+        id: newFocusSessionId(),
+        date: todayKey(),
+        seconds: focusedSeconds,
+        label,
+      };
 
       persist({
         ...s,
@@ -87,6 +119,8 @@ export function App() {
         sparkleCoins: s.sparkleCoins + earned,
         streakDays: streakInfo.streakDays,
         lastFocusDate: streakInfo.lastFocusDate,
+        sessions: [...s.sessions, entry],
+        lastSessionLabel: label,
       });
 
       setCelebrate(true);
@@ -95,7 +129,10 @@ export function App() {
       const streakBit = streakInfo.streakJustIncreased
         ? ` Streak bonus +${STREAK_BONUS_COINS}!`
         : "";
-      showToast(`+${earned} sparkles · ${wholeMinutes} min focus.${streakBit}`);
+      const labelBit = label ? ` · ${label}` : "";
+      showToast(
+        `+${earned} sparkles · ${wholeMinutes} min focus${labelBit}${streakBit ? "." + streakBit : ""}`
+      );
     },
     [persist, showToast]
   );
@@ -170,6 +207,40 @@ export function App() {
           </div>
         </header>
 
+        <div className="app-tabs" role="tablist" aria-label="App sections">
+          <button
+            type="button"
+            role="tab"
+            id="tab-focus"
+            aria-selected={appTab === "focus"}
+            aria-controls="panel-focus"
+            className={`app-tabs__btn ${appTab === "focus" ? "app-tabs__btn--active" : ""}`}
+            onClick={() => setAppTab("focus")}
+          >
+            Focus
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="tab-history"
+            aria-selected={appTab === "history"}
+            aria-controls="panel-history"
+            disabled={phase === "running"}
+            title={phase === "running" ? "Finish or cancel your session to view history" : undefined}
+            className={`app-tabs__btn ${appTab === "history" ? "app-tabs__btn--active" : ""}`}
+            onClick={() => setAppTab("history")}
+          >
+            History
+          </button>
+        </div>
+
+        {appTab === "focus" && (
+          <div
+            className="app-focus-panel"
+            id="panel-focus"
+            role="tabpanel"
+            aria-labelledby="tab-focus"
+          >
         <div className="app__main">
           <div className="app__buddy">
             <Mascot celebrating={celebrate} streakDays={state.streakDays} />
@@ -179,6 +250,24 @@ export function App() {
           <h2 id="timer-heading" className="timer-card__label">
             Session
           </h2>
+          <div className="focus-topic">
+            <label htmlFor="focus-topic" className="focus-topic__label">
+              What are you focusing on?
+            </label>
+            <input
+              id="focus-topic"
+              type="text"
+              className="focus-topic__input"
+              placeholder="e.g. Reading, deep work, course…"
+              maxLength={120}
+              disabled={phase === "running"}
+              value={sessionLabel}
+              onChange={(e) => setSessionLabel(e.target.value)}
+              onBlur={(e) =>
+                persist({ ...stateRef.current, lastSessionLabel: e.currentTarget.value.trim() })
+              }
+            />
+          </div>
           <div className="presets" role="group" aria-label="Duration presets">
             {PRESETS.map((m) => (
               <button
@@ -283,6 +372,49 @@ export function App() {
             <div className="stat-pill__label">Streak</div>
           </div>
         </div>
+          </div>
+        )}
+
+        {appTab === "history" && (
+          <div
+            className="app-history"
+            id="panel-history"
+            role="tabpanel"
+            aria-labelledby="tab-history"
+          >
+            <section className="focus-history" aria-labelledby="focus-history-heading">
+              <h2 id="focus-history-heading" className="focus-history__title">
+                Last 14 days
+              </h2>
+              <FocusChart series={chartSeries} dayLabels={chartDayLabels} />
+            </section>
+
+            {recentSessions.length > 0 && (
+              <section className="recent-sessions" aria-labelledby="recent-sessions-heading">
+                <h2 id="recent-sessions-heading" className="recent-sessions__title">
+                  Recent sessions
+                </h2>
+                <ul className="recent-sessions__list">
+                  {recentSessions.map((sess) => (
+                    <li key={sess.id} className="recent-sessions__item">
+                      <span className="recent-sessions__time">{formatHoursMinutes(sess.seconds)}</span>
+                      <span className="recent-sessions__meta">
+                        <span className="recent-sessions__date">{sess.date}</span>
+                        {sess.label ? (
+                          <span className="recent-sessions__label">{sess.label}</span>
+                        ) : (
+                          <span className="recent-sessions__label recent-sessions__label--empty">
+                            No label
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </div>
+        )}
 
         <button
           type="button"

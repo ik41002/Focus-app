@@ -1,3 +1,5 @@
+import type { FocusSession } from "./types";
+
 /** Local calendar date YYYY-MM-DD */
 export function todayKey(d = new Date()): string {
   const y = d.getFullYear();
@@ -44,4 +46,48 @@ export function nextStreakState(
     lastFocusDate: sessionDate,
     streakJustIncreased: prevStreak === 0,
   };
+}
+
+/** One point per calendar day for charts (seconds aggregated from sessions). */
+export interface DailyFocusPoint {
+  dateKey: string;
+  seconds: number;
+}
+
+/** Oldest → newest local calendar keys covering the last `numDays` days including `endDate`. */
+export function lastNDaysKeys(endDate: Date, numDays: number): string[] {
+  const out: string[] = [];
+  for (let i = numDays - 1; i >= 0; i--) {
+    const d = new Date(endDate);
+    d.setDate(d.getDate() - i);
+    out.push(todayKey(d));
+  }
+  return out;
+}
+
+/** Totals focus seconds per day for the sliding window ending on `endDate`. */
+export function dailyFocusSeries(
+  sessions: FocusSession[],
+  endDate: Date,
+  numDays: number
+): DailyFocusPoint[] {
+  const keys = lastNDaysKeys(endDate, numDays);
+  const map = new Map<string, number>();
+  for (const k of keys) map.set(k, 0);
+  for (const s of sessions) {
+    if (map.has(s.date)) map.set(s.date, (map.get(s.date) ?? 0) + s.seconds);
+  }
+  return keys.map((dateKey) => ({ dateKey, seconds: map.get(dateKey) ?? 0 }));
+}
+
+export function weekdayShortLabel(dateKey: string): string {
+  const d = new Date(`${dateKey}T12:00:00`);
+  return d.toLocaleDateString(undefined, { weekday: "short" });
+}
+
+export function newFocusSessionId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
