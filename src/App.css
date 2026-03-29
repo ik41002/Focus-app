@@ -140,6 +140,76 @@
   gap: 1.25rem;
 }
 
+.app-buddy-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.buddy-environment {
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.1rem 1.5rem;
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.2) 48%,
+    color-mix(in srgb, var(--color-accent-soft) 85%, transparent) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+}
+
+.buddy-environment__intro {
+  text-align: center;
+  max-width: 36ch;
+  margin-inline: auto;
+}
+
+.buddy-environment__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.buddy-environment__lede {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+.buddy-environment__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  min-height: min(48vh, 380px);
+  justify-content: center;
+}
+
+.buddy-environment__stage .mascot__bubble {
+  width: clamp(6.5rem, 22vw, 8.5rem);
+  height: clamp(6.5rem, 22vw, 8.5rem);
+}
+
+.buddy-environment__stage .mascot__emoji {
+  font-size: clamp(2.75rem, 10vw, 3.75rem);
+}
+
+.buddy-environment__stat {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.buddy-environment__cta {
+  margin-top: 0.75rem;
+}
+
 .history-month-recent {
   display: flex;
   flex-wrap: wrap;
@@ -189,6 +259,11 @@
 
 .mascot__bubble--pop {
   transform: scale(1.08) rotate(-4deg);
+}
+
+.mascot__bubble--dim {
+  opacity: 0.9;
+  filter: saturate(0.72);
 }
 
 .mascot__emoji {

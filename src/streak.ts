@@ -9,6 +9,15 @@ export function todayKey(d = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Total credited focus seconds on a calendar day (sum of sessions for `dateKey`). */
+export function focusSecondsForDate(sessions: FocusSession[], dateKey: string): number {
+  let t = 0;
+  for (const s of sessions) {
+    if (s.date === dateKey) t += s.seconds;
+  }
+  return t;
+}
+
 export function yesterdayKey(d = new Date()): string {
   const copy = new Date(d);
   copy.setDate(copy.getDate() - 1);
