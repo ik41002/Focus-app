@@ -1,21 +1,34 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { FocusSession } from "../types";
 import { monthFocusCalendar, todayKey } from "../streak";
 
 type Props = {
   sessions: FocusSession[];
+  /** When set, that calendar day is linked to the pie chart. */
+  selectedDateKey: string | null;
+  /** Toggle or clear selection (same day again clears). */
+  onSelectDate: (dateKey: string | null) => void;
 };
 
 /** Jan 1, 2023 is a Sunday — used only to label the seven columns Sun–Sat. */
 const WEEKDAY_BASE = new Date(2023, 0, 1);
 
-export function FocusMonthHeatmap({ sessions }: Props) {
+export function FocusMonthHeatmap({ sessions, selectedDateKey, onSelectDate }: Props) {
   const now = new Date();
   const currentY = now.getFullYear();
   const currentM = now.getMonth();
 
   const [viewY, setViewY] = useState(currentY);
   const [viewM, setViewM] = useState(currentM);
+
+  const prevMonthRef = useRef({ y: viewY, m: viewM });
+  useEffect(() => {
+    const prev = prevMonthRef.current;
+    if (prev.y !== viewY || prev.m !== viewM) {
+      prevMonthRef.current = { y: viewY, m: viewM };
+      onSelectDate(null);
+    }
+  }, [viewY, viewM, onSelectDate]);
 
   const { cells, maxSeconds } = useMemo(
     () => monthFocusCalendar(sessions, viewY, viewM),
@@ -62,7 +75,11 @@ export function FocusMonthHeatmap({ sessions }: Props) {
   };
 
   return (
-    <div className="focus-month focus-month--compact" role="img" aria-label={`Focus heatmap for ${monthLabel}`}>
+    <div
+      className="focus-month focus-month--compact"
+      role="group"
+      aria-label={`Focus heatmap for ${monthLabel}. Select a day to update the topic pie chart.`}
+    >
       <div className="focus-month__toolbar">
         <button
           type="button"
@@ -100,20 +117,27 @@ export function FocusMonthHeatmap({ sessions }: Props) {
           const isToday = c.dateKey === today;
           const heat =
             maxSeconds > 0 && c.seconds > 0 ? Math.min(1, c.seconds / maxSeconds) : 0;
-          const title = `${c.dateKey}: ${formatHeatLabel(c.seconds)}`;
+          const title = `${c.dateKey}: ${formatHeatLabel(c.seconds)}. Select for pie chart.`;
+          const isSelected = selectedDateKey === c.dateKey;
           return (
-            <div
+            <button
               key={c.dateKey}
-              className={`focus-month__cell focus-month__cell--day ${isToday ? "focus-month__cell--today" : ""}`}
+              type="button"
+              aria-pressed={isSelected}
+              aria-label={`${c.dateKey}, ${formatHeatLabel(c.seconds)} focus${isSelected ? ", showing in pie chart" : ""}`}
+              className={`focus-month__cell focus-month__cell--day ${isToday ? "focus-month__cell--today" : ""} ${isSelected ? "focus-month__cell--selected" : ""}`}
               title={title}
               style={
                 {
                   "--heat": String(heat),
                 } as CSSProperties
               }
+              onClick={() =>
+                onSelectDate(isSelected ? null : c.dateKey)
+              }
             >
               <span className="focus-month__day-num">{parseInt(c.dateKey.slice(8, 10), 10)}</span>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -121,7 +145,8 @@ export function FocusMonthHeatmap({ sessions }: Props) {
       <p className="focus-month__hint">
         {maxSeconds > 0 ? (
           <>
-            Darker = more focus that month (peak {formatHeatLabel(maxSeconds)} on a single day).
+            Darker = more focus that month (peak {formatHeatLabel(maxSeconds)} on a single day). Tap a
+            day to see its topic split in the pie.
           </>
         ) : (
           <>No focus logged this month.</>

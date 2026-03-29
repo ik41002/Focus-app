@@ -1,21 +1,19 @@
 import { useMemo } from "react";
 import type { FocusSession } from "../types";
+import { subjectGroupKey, subjectSliceColor } from "../subjectColors";
 
 type Props = {
   sessions: FocusSession[];
+  /** `day`: pie reflects one calendar day (heatmap selection). `recent`: last twelve sessions. */
+  variant?: "recent" | "day";
+  /** Locale date string for summaries when `variant` is `day`. */
+  contextDateLabel?: string;
 };
 
 const VIEW = 100;
 const CX = VIEW / 2;
 const CY = VIEW / 2;
 const R = 38;
-
-/** Normalize label so "Reading", "reading", and "  Reading  " share one slice. */
-function subjectGroupKey(label: string): string {
-  const t = label.trim().replace(/\s+/g, " ");
-  if (!t) return "__unlabeled__";
-  return t.toLowerCase();
-}
 
 type SubjectGroup = {
   key: string;
@@ -60,18 +58,6 @@ function formatDuration(seconds: number) {
   return `${m}m`;
 }
 
-/**
- * Evenly spaced hues with a fixed offset so slices stay clearly distinct and read as a smooth grade.
- * Saturation/lightness tuned for light UI surfaces.
- */
-function subjectSliceColor(index: number, total: number): string {
-  if (total <= 0) return "hsl(220, 12%, 72%)";
-  const hue = (268 + (index * 360) / total) % 360;
-  const sat = 58 - (index % 3) * 5;
-  const light = 52 - (index % 2) * 3;
-  return `hsl(${Math.round(hue)}, ${sat}%, ${light}%)`;
-}
-
 function pieSlicePath(startDeg: number, sweepDeg: number): string | null {
   if (sweepDeg <= 0) return null;
   if (sweepDeg >= 359.99) return null;
@@ -85,7 +71,11 @@ function pieSlicePath(startDeg: number, sweepDeg: number): string | null {
   return `M ${CX} ${CY} L ${x1} ${y1} A ${R} ${R} 0 ${largeArc} 1 ${x2} ${y2} Z`;
 }
 
-export function RecentSessionsPie({ sessions }: Props) {
+export function RecentSessionsPie({
+  sessions,
+  variant = "recent",
+  contextDateLabel,
+}: Props) {
   const groups = useMemo(() => groupSessionsBySubject(sessions), [sessions]);
 
   const { totalSec, slices } = useMemo(() => {
@@ -104,11 +94,18 @@ export function RecentSessionsPie({ sessions }: Props) {
   }, [groups]);
 
   const summaryLabel = useMemo(() => {
-    if (sessions.length === 0) return "No recent sessions";
+    if (sessions.length === 0) {
+      return variant === "day" && contextDateLabel
+        ? `No focus logged on ${contextDateLabel}`
+        : "No recent sessions";
+    }
     const t = formatDuration(totalSec);
     const topicWord = groups.length === 1 ? "topic" : "topics";
+    if (variant === "day" && contextDateLabel) {
+      return `Focus on ${contextDateLabel}: ${t} across ${sessions.length} session${sessions.length === 1 ? "" : "s"} in ${groups.length} ${topicWord}`;
+    }
     return `Recent focus: ${t} across ${sessions.length} session${sessions.length === 1 ? "" : "s"} in ${groups.length} ${topicWord}`;
-  }, [sessions.length, totalSec, groups.length]);
+  }, [sessions.length, totalSec, groups.length, variant, contextDateLabel]);
 
   return (
     <div className="recent-pie" role="img" aria-label={summaryLabel}>
@@ -143,7 +140,10 @@ export function RecentSessionsPie({ sessions }: Props) {
               const labelText = group.displayLabel || "No label";
               const sessNote =
                 group.sessionCount === 1 ? "1 session" : `${group.sessionCount} sessions`;
-              const title = `${labelText} · ${sessNote} · ${formatDuration(group.seconds)} total (${pct}%) · last ${group.lastDate}`;
+              const title =
+                variant === "day"
+                  ? `${labelText} · ${sessNote} · ${formatDuration(group.seconds)} total (${pct}%)`
+                  : `${labelText} · ${sessNote} · ${formatDuration(group.seconds)} total (${pct}%) · last ${group.lastDate}`;
               const fill = subjectSliceColor(index, groups.length);
               return (
                 <path key={group.key} className="recent-pie__slice" d={d} fill={fill}>
@@ -162,9 +162,13 @@ export function RecentSessionsPie({ sessions }: Props) {
           const label = group.displayLabel;
           const swatchColor = subjectSliceColor(index, groups.length);
           const meta =
-            group.sessionCount > 1
-              ? `${group.sessionCount} sessions · last ${group.lastDate}`
-              : group.lastDate;
+            variant === "day"
+              ? group.sessionCount > 1
+                ? `${group.sessionCount} sessions`
+                : ""
+              : group.sessionCount > 1
+                ? `${group.sessionCount} sessions · last ${group.lastDate}`
+                : group.lastDate;
           return (
             <li key={group.key} className="recent-pie__legend-row">
               <span
@@ -180,7 +184,7 @@ export function RecentSessionsPie({ sessions }: Props) {
                     <span className="recent-pie__legend-unlabeled">No label</span>
                   )}
                 </span>
-                <span className="recent-pie__legend-date">{meta}</span>
+                {meta ? <span className="recent-pie__legend-date">{meta}</span> : null}
               </span>
               <span className="recent-pie__legend-stat">
                 <span className="recent-pie__legend-time">{formatDuration(group.seconds)}</span>

@@ -7,7 +7,7 @@ import "./App.css";
 import { applyThemeToDocument, THEMES } from "./themes";
 import { APP_FONT_STACK, loadState, saveState } from "./storage";
 import {
-  dailyFocusSeries,
+  dailyFocusSeriesBySubject,
   newFocusSessionId,
   nextStreakState,
   todayKey,
@@ -65,13 +65,32 @@ export function App() {
   const goalSeconds = useMemo(() => Math.max(1, goalMin) * 60, [goalMin]);
 
   const chartSeries = useMemo(
-    () => dailyFocusSeries(state.sessions, new Date(), 7),
+    () => dailyFocusSeriesBySubject(state.sessions, new Date(), 7),
     [state.sessions]
   );
   const recentSessions = useMemo(
     () => [...state.sessions].slice(-12).reverse(),
     [state.sessions]
   );
+
+  const [pieSelectedDateKey, setPieSelectedDateKey] = useState<string | null>(null);
+
+  const pieSessions = useMemo(() => {
+    if (pieSelectedDateKey) {
+      return state.sessions.filter((s) => s.date === pieSelectedDateKey);
+    }
+    return recentSessions;
+  }, [pieSelectedDateKey, state.sessions, recentSessions]);
+
+  const pieContextDateLabel = useMemo(() => {
+    if (!pieSelectedDateKey) return undefined;
+    return new Date(`${pieSelectedDateKey}T12:00:00`).toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }, [pieSelectedDateKey]);
 
   const clearTick = useCallback(() => {
     if (tickRef.current != null) {
@@ -391,21 +410,39 @@ export function App() {
                 <h2 id="focus-month-heading" className="focus-history__title">
                   This month
                 </h2>
-                <FocusMonthHeatmap sessions={state.sessions} />
+                <FocusMonthHeatmap
+                  sessions={state.sessions}
+                  selectedDateKey={pieSelectedDateKey}
+                  onSelectDate={setPieSelectedDateKey}
+                />
               </section>
 
-              {recentSessions.length > 0 && (
+              {(pieSelectedDateKey != null || recentSessions.length > 0) && (
                 <section
                   className="recent-sessions recent-sessions--aside"
                   aria-labelledby="recent-sessions-heading"
                 >
                   <h2 id="recent-sessions-heading" className="recent-sessions__title">
-                    Recent sessions
+                    {pieSelectedDateKey ? "Day focus" : "Recent sessions"}
                   </h2>
                   <p className="recent-sessions__subtitle">
-                    Last twelve sessions, grouped by topic (same name adds to one slice)
+                    {pieSelectedDateKey ? (
+                      <>
+                        Topics on {pieContextDateLabel}. Tap the same day again to show recent
+                        sessions.
+                      </>
+                    ) : (
+                      <>
+                        Last twelve sessions, grouped by topic (same name adds to one slice). Tap a
+                        day in the calendar to see that day instead.
+                      </>
+                    )}
                   </p>
-                  <RecentSessionsPie sessions={recentSessions} />
+                  <RecentSessionsPie
+                    sessions={pieSessions}
+                    variant={pieSelectedDateKey ? "day" : "recent"}
+                    contextDateLabel={pieContextDateLabel}
+                  />
                 </section>
               )}
             </div>

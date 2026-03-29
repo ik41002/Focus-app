@@ -1,4 +1,5 @@
 import type { FocusSession } from "./types";
+import { subjectGroupKey } from "./subjectColors";
 
 /** Local calendar date YYYY-MM-DD */
 export function todayKey(d = new Date()): string {
@@ -78,6 +79,52 @@ export function dailyFocusSeries(
     if (map.has(s.date)) map.set(s.date, (map.get(s.date) ?? 0) + s.seconds);
   }
   return keys.map((dateKey) => ({ dateKey, seconds: map.get(dateKey) ?? 0 }));
+}
+
+/** One subject’s share of focus on a single calendar day. */
+export interface DaySubjectPart {
+  subjectKey: string;
+  displayLabel: string;
+  seconds: number;
+}
+
+/** Per-day total plus breakdown by topic (normalized label). */
+export interface DailyFocusBreakdown {
+  dateKey: string;
+  seconds: number;
+  parts: DaySubjectPart[];
+}
+
+/** Like `dailyFocusSeries`, but splits each day by topic so bars can stack. */
+export function dailyFocusSeriesBySubject(
+  sessions: FocusSession[],
+  endDate: Date,
+  numDays: number
+): DailyFocusBreakdown[] {
+  const keys = lastNDaysKeys(endDate, numDays);
+  const out: DailyFocusBreakdown[] = [];
+
+  for (const dateKey of keys) {
+    const partsMap = new Map<string, DaySubjectPart>();
+    for (const s of sessions) {
+      if (s.date !== dateKey) continue;
+      const sk = subjectGroupKey(s.label);
+      const cur = partsMap.get(sk);
+      if (cur) {
+        cur.seconds += s.seconds;
+      } else {
+        partsMap.set(sk, {
+          subjectKey: sk,
+          displayLabel: s.label.trim(),
+          seconds: s.seconds,
+        });
+      }
+    }
+    const parts = [...partsMap.values()].sort((a, b) => b.seconds - a.seconds);
+    const seconds = parts.reduce((a, p) => a + p.seconds, 0);
+    out.push({ dateKey, seconds, parts });
+  }
+  return out;
 }
 
 export function weekdayShortLabel(dateKey: string): string {
