@@ -4,7 +4,7 @@ import "./App.css";
 import { applyThemeToDocument, THEMES } from "./themes";
 import { APP_FONT_STACK, loadState, saveState } from "./storage";
 import { nextStreakState, todayKey } from "./streak";
-import type { Appearance, MascotId, ThemeId } from "./types";
+import type { Appearance, ThemeId } from "./types";
 import { COINS_PER_FOCUS_MINUTE, STREAK_BONUS_COINS } from "./types";
 
 type Phase = "idle" | "running";
@@ -170,13 +170,12 @@ export function App() {
           </div>
         </header>
 
-        <Mascot
-          mascotId={appearance.mascotId}
-          celebrating={celebrate}
-          streakDays={state.streakDays}
-        />
+        <div className="app__main">
+          <div className="app__buddy">
+            <Mascot celebrating={celebrate} streakDays={state.streakDays} />
+          </div>
 
-        <section className="timer-card" aria-labelledby="timer-heading">
+          <section className="timer-card timer-card--aside" aria-labelledby="timer-heading">
           <h2 id="timer-heading" className="timer-card__label">
             Session
           </h2>
@@ -271,7 +270,8 @@ export function App() {
             You earn {COINS_PER_FOCUS_MINUTE} sparkles per full focus minute. When your streak
             grows, you get a one-time +{STREAK_BONUS_COINS} bonus that session.
           </p>
-        </section>
+          </section>
+        </div>
 
         <div className="stats-row">
           <div className="stat-pill">
@@ -308,29 +308,6 @@ export function App() {
                     onClick={() => updateAppearance({ themeId: id })}
                   >
                     {THEMES[id].emoji} {THEMES[id].label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="field">
-              <span className="field__label">Buddy</span>
-              <div className="chip-row">
-                {(
-                  [
-                    ["sprout", "🌱 Sprout"],
-                    ["star", "✨ Star"],
-                    ["moon", "🌙 Moon"],
-                    ["cloud", "☁️ Cloud"],
-                  ] as const
-                ).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className={`chip ${appearance.mascotId === id ? "chip--on" : ""}`}
-                    onClick={() => updateAppearance({ mascotId: id as MascotId })}
-                  >
-                    {label}
                   </button>
                 ))}
               </div>

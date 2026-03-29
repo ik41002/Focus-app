@@ -1,10 +1,7 @@
 export type ThemeId = "sakura" | "mint" | "lavender" | "peach" | "sky";
 
-export type MascotId = "sprout" | "star" | "moon" | "cloud";
-
 export interface Appearance {
   themeId: ThemeId;
-  mascotId: MascotId;
 }
 
 export interface PersistedState {

@@ -2,11 +2,43 @@
   position: relative;
   min-height: 100dvh;
   padding: clamp(1rem, 4vw, 2rem);
-  max-width: 520px;
+  max-width: min(920px, 100%);
   margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+.app__main {
+  display: grid;
+  grid-template-columns: 1fr minmax(252px, 300px);
+  gap: clamp(1.25rem, 4vw, 2.5rem);
+  align-items: center;
+}
+
+@media (max-width: 700px) {
+  .app__main {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}
+
+.app__buddy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: min(52vh, 400px);
+  text-align: center;
+}
+
+.app__buddy .mascot__bubble {
+  width: clamp(6.5rem, 22vw, 8rem);
+  height: clamp(6.5rem, 22vw, 8rem);
+}
+
+.app__buddy .mascot__emoji {
+  font-size: clamp(2.75rem, 10vw, 3.5rem);
 }
 
 .app__header {
@@ -56,6 +88,14 @@
   z-index: 1;
 }
 
+.mascot__name {
+  margin: 0.85rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
 .mascot__bubble {
   display: inline-flex;
   align-items: center;
@@ -79,8 +119,10 @@
 }
 
 .mascot__caption {
-  margin: 0.65rem 0 0;
-  font-size: 0.82rem;
+  margin: 0.45rem 0 0;
+  max-width: 28ch;
+  font-size: 0.88rem;
+  line-height: 1.4;
   color: var(--color-muted);
 }
 
@@ -94,6 +136,43 @@
   padding: 1.35rem 1.25rem 1.5rem;
   border: 1px solid rgba(255, 255, 255, 0.55);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.07);
+}
+
+.timer-card--aside {
+  padding: 1.1rem 1rem 1.25rem;
+}
+
+.timer-card--aside .preset-btn {
+  min-width: 0;
+  font-size: 0.88rem;
+  padding: 0.5rem 0.45rem;
+}
+
+.timer-card--aside .custom-row {
+  margin-bottom: 0.85rem;
+}
+
+.timer-card--aside .ring-wrap {
+  margin: 0.35rem 0 0.75rem;
+}
+
+.timer-card--aside .timer-ring {
+  --size: clamp(148px, 42vw, 168px);
+  --stroke: 8px;
+}
+
+.timer-card--aside .timer-ring__time {
+  font-size: clamp(1.45rem, 5vw, 1.85rem);
+}
+
+.timer-card--aside .reward-hint {
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.timer-card--aside .btn {
+  padding: 0.65rem 0.85rem;
+  font-size: 0.92rem;
 }
 
 .timer-card__label {
