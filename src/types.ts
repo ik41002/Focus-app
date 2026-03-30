@@ -18,12 +18,14 @@ export interface StudyPlanItem {
   /** Local calendar day YYYY-MM-DD */
   date: string;
   /** 24h time HH:mm */
-  time: string;
+  startTime: string;
+  /** 24h time HH:mm */
+  endTime: string;
   subject: string;
 }
 
 export interface PersistedState {
-  version: 3;
+  version: 4;
   totalFocusSeconds: number;
   sparkleCoins: number;
   streakDays: number;

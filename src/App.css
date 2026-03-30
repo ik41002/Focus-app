@@ -209,6 +209,24 @@
   color: var(--color-muted);
 }
 
+.study-planner__durations {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+@media (max-width: 560px) {
+  .study-planner__durations {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.study-planner__durations .preset-btn {
+  min-width: 0;
+  padding: 0.48rem 0.35rem;
+  font-size: 0.82rem;
+}
+
 .study-planner__field input {
   width: 100%;
   box-sizing: border-box;
@@ -233,6 +251,14 @@
 
 .study-planner__form .btn {
   grid-column: 1 / -1;
+}
+
+.study-planner__error {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #b42318;
 }
 
 .study-planner__empty {

@@ -1,6 +1,8 @@
 import { useMemo, useState, type FormEvent } from "react";
 import type { StudyPlanItem } from "../types";
 
+const DURATION_PRESETS = [25, 45, 60] as const;
+
 function formatPlanDate(date: string) {
   const asDate = new Date(`${date}T12:00:00`);
   if (Number.isNaN(asDate.getTime())) return date;
@@ -13,7 +15,19 @@ function formatPlanDate(date: string) {
 
 function comparePlanItems(a: StudyPlanItem, b: StudyPlanItem) {
   if (a.date !== b.date) return a.date.localeCompare(b.date);
-  return a.time.localeCompare(b.time);
+  return a.startTime.localeCompare(b.startTime);
+}
+
+function addMinutesToTime(time: string, minutesToAdd: number) {
+  const [hRaw, mRaw] = time.split(":");
+  const h = Number.parseInt(hRaw, 10);
+  const m = Number.parseInt(mRaw, 10);
+  if (Number.isNaN(h) || Number.isNaN(m)) return time;
+  const total = h * 60 + m + minutesToAdd;
+  const capped = Math.min(total, 23 * 60 + 59);
+  const outH = Math.floor(capped / 60);
+  const outM = capped % 60;
+  return `${String(outH).padStart(2, "0")}:${String(outM).padStart(2, "0")}`;
 }
 
 export function StudyPlanner({
@@ -22,13 +36,16 @@ export function StudyPlanner({
   onRemovePlan,
 }: {
   plans: StudyPlanItem[];
-  onAddPlan: (input: { date: string; time: string; subject: string }) => void;
+  onAddPlan: (input: { date: string; startTime: string; endTime: string; subject: string }) => void;
   onRemovePlan: (id: string) => void;
 }) {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [date, setDate] = useState(today);
-  const [time, setTime] = useState("16:00");
+  const [startTime, setStartTime] = useState("16:00");
+  const [endTime, setEndTime] = useState("17:00");
   const [subject, setSubject] = useState("");
+  const [selectedDuration, setSelectedDuration] = useState<number | "custom">(60);
+  const [timeError, setTimeError] = useState<string | null>(null);
 
   const sortedPlans = useMemo(() => [...plans].sort(comparePlanItems), [plans]);
 
@@ -36,7 +53,12 @@ export function StudyPlanner({
     e.preventDefault();
     const cleanSubject = subject.trim();
     if (!cleanSubject) return;
-    onAddPlan({ date, time, subject: cleanSubject });
+    if (endTime <= startTime) {
+      setTimeError("End time must be later than start time.");
+      return;
+    }
+    setTimeError(null);
+    onAddPlan({ date, startTime, endTime, subject: cleanSubject });
     setSubject("");
   };
 
@@ -57,8 +79,61 @@ export function StudyPlanner({
           </label>
 
           <label className="study-planner__field">
-            <span>Time</span>
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
+            <span>Start</span>
+            <input
+              type="time"
+              value={startTime}
+              onChange={(e) => {
+                const nextStart = e.target.value;
+                setStartTime(nextStart);
+                if (selectedDuration !== "custom") {
+                  setEndTime(addMinutesToTime(nextStart, selectedDuration));
+                }
+                if (timeError) setTimeError(null);
+              }}
+              required
+            />
+          </label>
+
+          <div className="study-planner__field study-planner__field--wide">
+            <span>Duration</span>
+            <div className="study-planner__durations">
+              {DURATION_PRESETS.map((minutes) => (
+                <button
+                  key={minutes}
+                  type="button"
+                  className={`preset-btn ${selectedDuration === minutes ? "preset-btn--active" : ""}`}
+                  onClick={() => {
+                    setSelectedDuration(minutes);
+                    setEndTime(addMinutesToTime(startTime, minutes));
+                    if (timeError) setTimeError(null);
+                  }}
+                >
+                  {minutes} min
+                </button>
+              ))}
+              <button
+                type="button"
+                className={`preset-btn ${selectedDuration === "custom" ? "preset-btn--active" : ""}`}
+                onClick={() => setSelectedDuration("custom")}
+              >
+                Custom end
+              </button>
+            </div>
+          </div>
+
+          <label className="study-planner__field">
+            <span>End</span>
+            <input
+              type="time"
+              value={endTime}
+              onChange={(e) => {
+                setEndTime(e.target.value);
+                setSelectedDuration("custom");
+                if (timeError) setTimeError(null);
+              }}
+              required
+            />
           </label>
 
           <label className="study-planner__field study-planner__field--wide">
@@ -76,6 +151,7 @@ export function StudyPlanner({
           <button type="submit" className="btn btn--primary">
             Add focus block
           </button>
+          {timeError && <p className="study-planner__error">{timeError}</p>}
         </form>
       </section>
 
@@ -95,14 +171,14 @@ export function StudyPlanner({
                 <div className="study-planner__item-main">
                   <p className="study-planner__item-subject">{plan.subject}</p>
                   <p className="study-planner__item-time">
-                    {formatPlanDate(plan.date)} at {plan.time}
+                    {formatPlanDate(plan.date)} · {plan.startTime} - {plan.endTime}
                   </p>
                 </div>
                 <button
                   type="button"
                   className="study-planner__remove"
                   onClick={() => onRemovePlan(plan.id)}
-                  aria-label={`Remove ${plan.subject} on ${plan.date} at ${plan.time}`}
+                  aria-label={`Remove ${plan.subject} on ${plan.date} from ${plan.startTime} to ${plan.endTime}`}
                 >
                   Remove
                 </button>

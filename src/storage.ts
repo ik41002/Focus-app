@@ -10,7 +10,7 @@ const defaultAppearance: Appearance = {
 export const APP_FONT_STACK = '"Quicksand", system-ui, sans-serif';
 
 export const defaultState: PersistedState = {
-  version: 3,
+  version: 4,
   totalFocusSeconds: 0,
   sparkleCoins: 0,
   streakDays: 0,
@@ -27,7 +27,7 @@ function migrate(raw: unknown): PersistedState {
   if (!raw || typeof raw !== "object") return base;
   const p = raw as Record<string, unknown>;
   const ver = p.version;
-  if (ver !== 1 && ver !== 2 && ver !== 3) return base;
+  if (ver !== 1 && ver !== 2 && ver !== 3 && ver !== 4) return base;
 
   const appearance = {
     ...defaultAppearance,
@@ -55,7 +55,29 @@ function migrate(raw: unknown): PersistedState {
   }
 
   const sessions = Array.isArray(p.sessions) ? (p.sessions as PersistedState["sessions"]) : [];
-  const studyPlan = Array.isArray(p.studyPlan) ? (p.studyPlan as PersistedState["studyPlan"]) : [];
+  const studyPlan = Array.isArray(p.studyPlan)
+    ? p.studyPlan
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const row = item as Record<string, unknown>;
+          const id = typeof row.id === "string" ? row.id : null;
+          const date = typeof row.date === "string" ? row.date : null;
+          const subject = typeof row.subject === "string" ? row.subject : null;
+          if (!id || !date || !subject) return null;
+
+          const legacyTime = typeof row.time === "string" ? row.time : "16:00";
+          const startTime = typeof row.startTime === "string" ? row.startTime : legacyTime;
+          const endTime =
+            typeof row.endTime === "string"
+              ? row.endTime
+              : startTime === "23:59"
+                ? "23:59"
+                : "17:00";
+
+          return { id, date, subject, startTime, endTime };
+        })
+        .filter((item): item is PersistedState["studyPlan"][number] => item != null)
+    : [];
   return {
     ...base,
     totalFocusSeconds: typeof p.totalFocusSeconds === "number" ? p.totalFocusSeconds : 0,

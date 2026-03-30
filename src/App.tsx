@@ -521,8 +521,8 @@ export function App() {
           >
             <StudyPlanner
               plans={state.studyPlan}
-              onAddPlan={({ date, time, subject }) => {
-                const nextItem = { id: newStudyPlanId(), date, time, subject };
+              onAddPlan={({ date, startTime, endTime, subject }) => {
+                const nextItem = { id: newStudyPlanId(), date, startTime, endTime, subject };
                 persist({ ...stateRef.current, studyPlan: [...stateRef.current.studyPlan, nextItem] });
                 showToast(`Added study block: ${subject}`);
               }}
