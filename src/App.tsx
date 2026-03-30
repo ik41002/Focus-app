@@ -21,7 +21,7 @@ import { COINS_PER_FOCUS_MINUTE, STREAK_BONUS_COINS } from "./types";
 type Phase = "idle" | "running";
 type AppTab = "focus" | "history" | "planner" | "buddy";
 
-const PRESETS = [15, 25, 45] as const;
+const PRESETS = [25, 45, 60] as const;
 
 const RADIUS = 42;
 const CIRC = 2 * Math.PI * RADIUS;
