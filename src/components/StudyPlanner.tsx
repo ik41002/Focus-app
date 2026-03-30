@@ -3,16 +3,6 @@ import type { StudyPlanItem } from "../types";
 
 const DURATION_PRESETS = [25, 45, 60] as const;
 
-function formatPlanDate(date: string) {
-  const asDate = new Date(`${date}T12:00:00`);
-  if (Number.isNaN(asDate.getTime())) return date;
-  return asDate.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
 function localDateKey(d = new Date()) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -37,6 +27,29 @@ function addMinutesToTime(time: string, minutesToAdd: number) {
   return `${String(outH).padStart(2, "0")}:${String(outM).padStart(2, "0")}`;
 }
 
+/** Monday 00:00 local week start for the week containing `d`. */
+function startOfWeekMonday(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(12, 0, 0, 0);
+  const dow = x.getDay();
+  const delta = dow === 0 ? -6 : 1 - dow;
+  x.setDate(x.getDate() + delta);
+  return x;
+}
+
+function addDays(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+function localDateKeyFromDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function StudyPlanner({
   plans,
   canStartPlanNow,
@@ -50,16 +63,64 @@ export function StudyPlanner({
   onAddPlan: (input: { date: string; startTime: string; endTime: string; subject: string }) => void;
   onRemovePlan: (id: string) => void;
 }) {
-  const today = useMemo(() => localDateKey(), []);
-  const [date, setDate] = useState(today);
+  const todayKeyValue = useMemo(() => localDateKey(), []);
+  const [date, setDate] = useState(todayKeyValue);
   const [startTime, setStartTime] = useState("16:00");
   const [endTime, setEndTime] = useState("17:00");
   const [subject, setSubject] = useState("");
   const [selectedDuration, setSelectedDuration] = useState<number | "custom">(60);
   const [timeError, setTimeError] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(0);
+  /** 0 = this calendar week (Mon–Sun); ±1 = prev/next week */
+  const [weekOffset, setWeekOffset] = useState(0);
 
   const sortedPlans = useMemo(() => [...plans].sort(comparePlanItems), [plans]);
+
+  const weekContext = useMemo(() => {
+    const anchor = addDays(new Date(), weekOffset * 7);
+    const monday = startOfWeekMonday(anchor);
+    const dayCells = Array.from({ length: 7 }, (_, i) => {
+      const d = addDays(monday, i);
+      const dateKey = localDateKeyFromDate(d);
+      const weekday = d.toLocaleDateString(undefined, { weekday: "short" });
+      const dayNum = d.toLocaleDateString(undefined, { day: "numeric" });
+      const isToday = dateKey === todayKeyValue;
+      return { dateKey, weekday, dayNum, isToday, date: d };
+    });
+    const rangeLabel = (() => {
+      const a = dayCells[0].date;
+      const b = dayCells[6].date;
+      const sameMonth = a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+      const left = a.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      const right = sameMonth
+        ? b.toLocaleDateString(undefined, { day: "numeric", year: "numeric" })
+        : b.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+      return `${left} – ${right}`;
+    })();
+    return { dayCells, rangeLabel };
+  }, [weekOffset, todayKeyValue]);
+
+  const plansForWeekDays = useMemo(() => {
+    const map = new Map<string, StudyPlanItem[]>();
+    for (const cell of weekContext.dayCells) {
+      map.set(cell.dateKey, []);
+    }
+    const weekKeys = new Set(weekContext.dayCells.map((c) => c.dateKey));
+    for (const p of sortedPlans) {
+      if (weekKeys.has(p.date)) {
+        map.get(p.date)!.push(p);
+      }
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => a.startTime.localeCompare(b.startTime));
+    }
+    return map;
+  }, [sortedPlans, weekContext.dayCells]);
+
+  const plansOutsideWeek = useMemo(() => {
+    const weekKeys = new Set(weekContext.dayCells.map((c) => c.dateKey));
+    return sortedPlans.filter((p) => !weekKeys.has(p.date));
+  }, [sortedPlans, weekContext.dayCells]);
 
   useEffect(() => {
     const t = window.setInterval(() => setNowTick((v) => v + 1), 30000);
@@ -81,7 +142,7 @@ export function StudyPlanner({
 
   return (
     <div className="study-planner">
-      <section className="study-planner__card" aria-labelledby="study-planner-heading">
+      <section className="study-planner__card study-planner__card--form" aria-labelledby="study-planner-heading">
         <h2 id="study-planner-heading" className="study-planner__title">
           Study planner
         </h2>
@@ -172,48 +233,115 @@ export function StudyPlanner({
         </form>
       </section>
 
-      <section className="study-planner__card" aria-labelledby="study-plan-list-heading">
-        <h2 id="study-plan-list-heading" className="study-planner__title">
-          Upcoming plan
-        </h2>
+      <section
+        className="study-planner__card study-planner__card--week"
+        aria-labelledby="study-plan-week-heading"
+        data-now-tick={nowTick}
+      >
+        <div className="study-planner__week-head">
+          <h2 id="study-plan-week-heading" className="study-planner__title">
+            Week overview
+          </h2>
+          <div className="study-planner__week-toolbar" role="group" aria-label="Week navigation">
+            <button
+              type="button"
+              className="study-planner__week-nav"
+              onClick={() => setWeekOffset((w) => w - 1)}
+              aria-label="Previous week"
+            >
+              ‹
+            </button>
+            <span className="study-planner__week-range" aria-live="polite">
+              {weekContext.rangeLabel}
+            </span>
+            <button
+              type="button"
+              className="study-planner__week-nav"
+              onClick={() => setWeekOffset((w) => w + 1)}
+              aria-label="Next week"
+            >
+              ›
+            </button>
+            {weekOffset !== 0 && (
+              <button
+                type="button"
+                className="study-planner__week-today"
+                onClick={() => setWeekOffset(0)}
+              >
+                This week
+              </button>
+            )}
+          </div>
+        </div>
+        <p className="study-planner__week-hint">Monday–Sunday · times are local</p>
 
         {sortedPlans.length === 0 ? (
           <p className="study-planner__empty">
-            No focus blocks yet. Add your first one to start shaping your week.
+            No focus blocks yet. Add your first one above to fill this week.
           </p>
         ) : (
-          <ul className="study-planner__list" data-now-tick={nowTick}>
-            {sortedPlans.map((plan) => (
-              <li key={plan.id} className="study-planner__item">
-                <div className="study-planner__item-main">
-                  <p className="study-planner__item-subject">{plan.subject}</p>
-                  <p className="study-planner__item-time">
-                    {formatPlanDate(plan.date)} · {plan.startTime} - {plan.endTime}
-                  </p>
-                </div>
-                <div className="study-planner__item-actions">
-                  {canStartPlanNow(plan) && (
-                    <button
-                      type="button"
-                      className="btn btn--primary study-planner__start"
-                      onClick={() => onStartPlanFocus(plan)}
-                      aria-label={`Start planned focus for ${plan.subject}`}
+          <>
+            <div className="study-planner__week-scroll">
+              <div className="study-planner__week-grid">
+                {weekContext.dayCells.map((cell) => {
+                  const dayPlans = plansForWeekDays.get(cell.dateKey) ?? [];
+                  return (
+                    <div
+                      key={cell.dateKey}
+                      className={`study-planner__week-day ${cell.isToday ? "study-planner__week-day--today" : ""}`}
                     >
-                      Start focus now
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="study-planner__remove"
-                    onClick={() => onRemovePlan(plan.id)}
-                    aria-label={`Remove ${plan.subject} on ${plan.date} from ${plan.startTime} to ${plan.endTime}`}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+                      <div className="study-planner__week-day-head">
+                        <span className="study-planner__week-day-name">{cell.weekday}</span>
+                        <span className="study-planner__week-day-num">{cell.dayNum}</span>
+                      </div>
+                      <ul className="study-planner__week-blocks">
+                        {dayPlans.length === 0 ? (
+                          <li className="study-planner__week-empty">—</li>
+                        ) : (
+                          dayPlans.map((plan) => (
+                            <li key={plan.id} className="study-planner__week-block">
+                              <p className="study-planner__week-block-subject" title={plan.subject}>
+                                {plan.subject}
+                              </p>
+                              <p className="study-planner__week-block-time">
+                                {plan.startTime}–{plan.endTime}
+                              </p>
+                              <div className="study-planner__week-block-actions">
+                                {canStartPlanNow(plan) && (
+                                  <button
+                                    type="button"
+                                    className="btn btn--primary study-planner__start"
+                                    onClick={() => onStartPlanFocus(plan)}
+                                    aria-label={`Start planned focus for ${plan.subject}`}
+                                  >
+                                    Start
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className="study-planner__remove"
+                                  onClick={() => onRemovePlan(plan.id)}
+                                  aria-label={`Remove ${plan.subject}`}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {plansOutsideWeek.length > 0 && (
+              <p className="study-planner__week-footnote">
+                {plansOutsideWeek.length} block{plansOutsideWeek.length === 1 ? "" : "s"} on other
+                weeks (use arrows to browse).
+              </p>
+            )}
+          </>
         )}
       </section>
     </div>
