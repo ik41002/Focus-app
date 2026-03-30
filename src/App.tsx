@@ -44,6 +44,8 @@ function newStudyPlanId() {
 }
 
 const PLANNED_TIME_LEEWAY_MIN = 5;
+/** Extra minutes after planned end when checking bonus overlap only (not for the Start button). */
+const PLANNED_BONUS_END_LEEWAY_MIN = 5;
 
 function hhmmToMinutes(value: string) {
   const [hRaw, mRaw] = value.split(":");
@@ -71,11 +73,75 @@ function isPlanTimeMatch(plan: { date: string; startTime: string; endTime: strin
   return atMin >= startWithLeeway && atMin < endMin;
 }
 
-function isPlannedStudyTime(
-  studyPlan: { date: string; startTime: string; endTime: string }[],
-  startedAt: Date | null
+function normalizeSubject(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function subjectMatchesPlan(sessionLabel: string, planSubject: string) {
+  const a = normalizeSubject(sessionLabel);
+  const b = normalizeSubject(planSubject);
+  return a.length > 0 && a === b;
+}
+
+function localDateKeyFromDate(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function secondsSinceMidnightLocal(d: Date) {
+  return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+}
+
+/** True if the focused interval overlaps the planned block (same local day), with start leeway + small tail after end. */
+function planBonusTimeOverlaps(
+  plan: { date: string; startTime: string; endTime: string },
+  startedAt: Date,
+  focusedSeconds: number
 ) {
-  return studyPlan.some((item) => isPlanTimeMatch(item, startedAt));
+  if (plan.date !== localDateKeyFromDate(startedAt)) return false;
+  const startMin = hhmmToMinutes(plan.startTime);
+  const endMin = hhmmToMinutes(plan.endTime);
+  if (startMin == null || endMin == null || endMin <= startMin) return false;
+
+  const planStartSec = Math.max(0, startMin * 60 - PLANNED_TIME_LEEWAY_MIN * 60);
+  const planEndSec = endMin * 60 + PLANNED_BONUS_END_LEEWAY_MIN * 60;
+  const sessStartSec = secondsSinceMidnightLocal(startedAt);
+  const sessEndSec = sessStartSec + focusedSeconds;
+  return sessStartSec < planEndSec && sessEndSec > planStartSec;
+}
+
+/** Same local day as session start and focus topic matches planned subject (case-insensitive). */
+function planBonusSubjectMatches(
+  plan: { date: string; subject: string },
+  startedAt: Date,
+  sessionLabel: string
+) {
+  if (plan.date !== localDateKeyFromDate(startedAt)) return false;
+  return subjectMatchesPlan(sessionLabel, plan.subject);
+}
+
+function qualifiesForPlannedBonus(
+  plan: StudyPlanItem,
+  startedAt: Date | null,
+  focusedSeconds: number,
+  sessionLabel: string
+) {
+  if (!startedAt || focusedSeconds < 1) return false;
+  return (
+    planBonusTimeOverlaps(plan, startedAt, focusedSeconds) ||
+    planBonusSubjectMatches(plan, startedAt, sessionLabel)
+  );
+}
+
+function isPlannedStudyTime(
+  studyPlan: StudyPlanItem[],
+  startedAt: Date | null,
+  focusedSeconds: number,
+  sessionLabel: string
+) {
+  return studyPlan.some((item) => qualifiesForPlannedBonus(item, startedAt, focusedSeconds, sessionLabel));
 }
 
 export function App() {
@@ -176,9 +242,9 @@ export function App() {
       const baseCoins = wholeMinutes * COINS_PER_FOCUS_MINUTE;
       const streakInfo = nextStreakState(s.streakDays, s.lastFocusDate, todayKey());
       const bonus = streakInfo.streakJustIncreased ? STREAK_BONUS_COINS : 0;
-      const isPlanned = isPlannedStudyTime(s.studyPlan, effectiveStartedAt);
-      const earned = (baseCoins + bonus) * (isPlanned ? 2 : 1);
       const label = sessionLabelRef.current.trim();
+      const isPlanned = isPlannedStudyTime(s.studyPlan, effectiveStartedAt, focusedSeconds, label);
+      const earned = (baseCoins + bonus) * (isPlanned ? 2 : 1);
       const entry = {
         id: newFocusSessionId(),
         date: todayKey(),
@@ -228,7 +294,8 @@ export function App() {
           clearTick();
           setPhase("idle");
           const g = startedGoalSecRef.current;
-          window.setTimeout(() => creditSession(g, null), 0);
+          const sessionStart = sessionStartedAtRef.current;
+          window.setTimeout(() => creditSession(g, sessionStart), 0);
           return 0;
         }
         return prev - 1;
@@ -270,7 +337,8 @@ export function App() {
           clearTick();
           setPhase("idle");
           const g = startedGoalSecRef.current;
-          window.setTimeout(() => creditSession(g, null), 0);
+          const sessionStart = sessionStartedAtRef.current;
+          window.setTimeout(() => creditSession(g, sessionStart), 0);
           return 0;
         }
         return prev - 1;
@@ -284,7 +352,7 @@ export function App() {
     const elapsed = startedGoalSecRef.current - remainingSec;
     setPhase("idle");
     setRemainingSec(0);
-    creditSession(elapsed, null);
+    creditSession(elapsed, sessionStartedAtRef.current);
   };
 
   const cancelSession = () => {
