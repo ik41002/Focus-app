@@ -4,6 +4,7 @@ import { FocusMonthHeatmap } from "./components/FocusMonthHeatmap";
 import { RecentSessionsPie } from "./components/RecentSessionsPie";
 import { BuddyEnvironment } from "./components/BuddyEnvironment";
 import { SproutBuddy } from "./components/SproutBuddy";
+import { StudyPlanner } from "./components/StudyPlanner";
 import "./App.css";
 import { applyThemeToDocument, THEMES } from "./themes";
 import { APP_FONT_STACK, loadState, saveState } from "./storage";
@@ -18,7 +19,7 @@ import type { Appearance, ThemeId } from "./types";
 import { COINS_PER_FOCUS_MINUTE, STREAK_BONUS_COINS } from "./types";
 
 type Phase = "idle" | "running";
-type AppTab = "focus" | "history" | "buddy";
+type AppTab = "focus" | "history" | "planner" | "buddy";
 
 const PRESETS = [15, 25, 45] as const;
 
@@ -36,6 +37,10 @@ function formatHoursMinutes(seconds: number) {
   const m = Math.floor((seconds % 3600) / 60);
   if (h > 0) return `${h}h ${m}m`;
   return `${m}m`;
+}
+
+function newStudyPlanId() {
+  return `plan-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 export function App() {
@@ -260,6 +265,17 @@ export function App() {
             onClick={() => setAppTab("history")}
           >
             History
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="tab-planner"
+            aria-selected={appTab === "planner"}
+            aria-controls="panel-planner"
+            className={`app-tabs__btn ${appTab === "planner" ? "app-tabs__btn--active" : ""}`}
+            onClick={() => setAppTab("planner")}
+          >
+            Study planner
           </button>
           <button
             type="button"
@@ -492,6 +508,31 @@ export function App() {
             <BuddyEnvironment
               todayFocusSeconds={todayFocusSeconds}
               onGoFocus={() => setAppTab("focus")}
+            />
+          </div>
+        )}
+
+        {appTab === "planner" && (
+          <div
+            className="app-planner-panel"
+            id="panel-planner"
+            role="tabpanel"
+            aria-labelledby="tab-planner"
+          >
+            <StudyPlanner
+              plans={state.studyPlan}
+              onAddPlan={({ date, time, subject }) => {
+                const nextItem = { id: newStudyPlanId(), date, time, subject };
+                persist({ ...stateRef.current, studyPlan: [...stateRef.current.studyPlan, nextItem] });
+                showToast(`Added study block: ${subject}`);
+              }}
+              onRemovePlan={(id) => {
+                const before = stateRef.current.studyPlan;
+                const next = before.filter((item) => item.id !== id);
+                if (next.length === before.length) return;
+                persist({ ...stateRef.current, studyPlan: next });
+                showToast("Removed study block.");
+              }}
             />
           </div>
         )}

@@ -13,8 +13,17 @@ export interface FocusSession {
   label: string;
 }
 
+export interface StudyPlanItem {
+  id: string;
+  /** Local calendar day YYYY-MM-DD */
+  date: string;
+  /** 24h time HH:mm */
+  time: string;
+  subject: string;
+}
+
 export interface PersistedState {
-  version: 2;
+  version: 3;
   totalFocusSeconds: number;
   sparkleCoins: number;
   streakDays: number;
@@ -26,6 +35,8 @@ export interface PersistedState {
   sessions: FocusSession[];
   /** Prefills the “what are you focusing on?” field */
   lastSessionLabel: string;
+  /** Planned future focus blocks */
+  studyPlan: StudyPlanItem[];
 }
 
 export const COINS_PER_FOCUS_MINUTE = 2;
