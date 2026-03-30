@@ -1,8 +1,8 @@
-import { Mascot, type BuddyEnvironmentMood } from "./Mascot";
+import { SproutBuddy, type BuddyMood } from "./SproutBuddy";
 
 const RADIANT_MINUTES = 25;
 
-function moodFromTodaySeconds(sec: number): BuddyEnvironmentMood {
+function moodFromTodaySeconds(sec: number): BuddyMood {
   if (sec <= 0) return "waiting";
   if (sec < RADIANT_MINUTES * 60) return "content";
   return "radiant";
@@ -16,11 +16,9 @@ function formatTodayMinutes(sec: number) {
 
 export function BuddyEnvironment({
   todayFocusSeconds,
-  streakDays,
   onGoFocus,
 }: {
   todayFocusSeconds: number;
-  streakDays: number;
   onGoFocus: () => void;
 }) {
   const mood = moodFromTodaySeconds(todayFocusSeconds);
@@ -38,11 +36,15 @@ export function BuddyEnvironment({
       </section>
 
       <div className="buddy-environment__stage">
-        <Mascot
-          celebrating={false}
-          streakDays={streakDays}
-          environmentMood={mood}
-        />
+        <SproutBuddy mood={mood} />
+        <p className="buddy-environment__name">Sprout</p>
+        <p className="mascot__caption buddy-environment__caption">
+          {mood === "waiting"
+            ? "Sprout is feeling gloomy - focus today to bring the garden back to life."
+            : mood === "content"
+              ? "Sprout is perking up - you've already nourished the garden today."
+              : "Sprout is beaming - you gave this day real depth."}
+        </p>
         <p className="buddy-environment__stat">{formatTodayMinutes(todayFocusSeconds)}</p>
         {mood === "waiting" && (
           <button type="button" className="btn btn--primary buddy-environment__cta" onClick={onGoFocus}>

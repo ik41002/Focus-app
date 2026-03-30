@@ -479,7 +479,6 @@ export function App() {
           >
             <BuddyEnvironment
               todayFocusSeconds={todayFocusSeconds}
-              streakDays={state.streakDays}
               onGoFocus={() => setAppTab("focus")}
             />
           </div>

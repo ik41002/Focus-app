@@ -190,13 +190,154 @@
   justify-content: center;
 }
 
-.buddy-environment__stage .mascot__bubble {
-  width: clamp(6.5rem, 22vw, 8.5rem);
-  height: clamp(6.5rem, 22vw, 8.5rem);
+.buddy-environment__name {
+  margin: 0.65rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
 }
 
-.buddy-environment__stage .mascot__emoji {
-  font-size: clamp(2.75rem, 10vw, 3.75rem);
+.buddy-environment__caption {
+  margin-top: 0.25rem;
+}
+
+.sprout-buddy {
+  width: clamp(7rem, 28vw, 9.75rem);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  transform-origin: 50% 88%;
+}
+
+.sprout-buddy__svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.sprout-buddy__shadow {
+  fill: rgba(0, 0, 0, 0.12);
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  transform-origin: center;
+}
+
+.sprout-buddy__body-group {
+  transform-origin: 110px 164px;
+  animation: sprout-bob 3s ease-in-out infinite;
+}
+
+.sprout-buddy__stem {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-accent) 62%, #2f855a);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.sprout-buddy__leaf {
+  fill: color-mix(in srgb, var(--color-accent) 55%, #22c55e);
+  stroke: color-mix(in srgb, var(--color-accent) 72%, #166534);
+  stroke-width: 2.2;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.25s ease, fill 0.25s ease, opacity 0.25s ease;
+}
+
+.sprout-buddy__face {
+  fill: url(#sprout-face-grad);
+  stroke: rgba(255, 255, 255, 0.52);
+  stroke-width: 2;
+}
+
+.sprout-buddy__eye {
+  fill: color-mix(in srgb, var(--color-text) 86%, #1b2a22);
+}
+
+.sprout-buddy__mouth {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-text) 80%, #2b3a30);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.25s ease;
+}
+
+.sprout-buddy__blush {
+  fill: color-mix(in srgb, var(--color-accent) 26%, #ff9fb3);
+  opacity: 0.55;
+}
+
+.sprout-buddy--waiting .sprout-buddy__body-group {
+  animation-duration: 4s;
+  transform: rotate(-4deg) translateY(3px);
+}
+
+.sprout-buddy--waiting .sprout-buddy__leaf--left {
+  transform: rotate(22deg) translateY(6px);
+}
+
+.sprout-buddy--waiting .sprout-buddy__leaf--right {
+  transform: rotate(-22deg) translateY(6px);
+}
+
+.sprout-buddy--waiting .sprout-buddy__mouth {
+  transform: translateY(4px) scaleY(-0.85);
+}
+
+.sprout-buddy--waiting .sprout-buddy__shadow {
+  opacity: 0.65;
+  transform: scaleX(0.92);
+}
+
+.sprout-buddy--content .sprout-buddy__leaf--left {
+  transform: rotate(5deg);
+}
+
+.sprout-buddy--content .sprout-buddy__leaf--right {
+  transform: rotate(-5deg);
+}
+
+.sprout-buddy--radiant {
+  animation: sprout-pop 0.8s ease;
+}
+
+.sprout-buddy--radiant .sprout-buddy__body-group {
+  animation-duration: 2.2s;
+}
+
+.sprout-buddy--radiant .sprout-buddy__leaf--left {
+  transform: rotate(-8deg) translateY(-3px);
+}
+
+.sprout-buddy--radiant .sprout-buddy__leaf--right {
+  transform: rotate(8deg) translateY(-3px);
+}
+
+.sprout-buddy--radiant .sprout-buddy__face {
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--color-accent) 38%, transparent));
+}
+
+@keyframes sprout-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+
+@keyframes sprout-pop {
+  0% {
+    transform: scale(0.95);
+  }
+  70% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .buddy-environment__stat {
