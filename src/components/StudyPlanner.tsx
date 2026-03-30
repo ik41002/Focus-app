@@ -50,18 +50,28 @@ function localDateKeyFromDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+function planSortTier(p: StudyPlanItem) {
+  if (p.completed) return 2;
+  if (p.missed) return 1;
+  return 0;
+}
+
 export function StudyPlanner({
   plans,
   canStartPlanNow,
   onStartPlanFocus,
   onAddPlan,
   onRemovePlan,
+  onTogglePlanCompleted,
+  onTogglePlanMissed,
 }: {
   plans: StudyPlanItem[];
   canStartPlanNow: (plan: StudyPlanItem) => boolean;
   onStartPlanFocus: (plan: StudyPlanItem) => void;
   onAddPlan: (input: { date: string; startTime: string; endTime: string; subject: string }) => void;
   onRemovePlan: (id: string) => void;
+  onTogglePlanCompleted: (id: string, completed: boolean) => void;
+  onTogglePlanMissed: (id: string, missed: boolean) => void;
 }) {
   const todayKeyValue = useMemo(() => localDateKey(), []);
   const [date, setDate] = useState(todayKeyValue);
@@ -112,7 +122,11 @@ export function StudyPlanner({
       }
     }
     for (const list of map.values()) {
-      list.sort((a, b) => a.startTime.localeCompare(b.startTime));
+      list.sort((a, b) => {
+        const t = planSortTier(a) - planSortTier(b);
+        if (t !== 0) return t;
+        return a.startTime.localeCompare(b.startTime);
+      });
     }
     return map;
   }, [sortedPlans, weekContext.dayCells]);
@@ -121,6 +135,27 @@ export function StudyPlanner({
     const weekKeys = new Set(weekContext.dayCells.map((c) => c.dateKey));
     return sortedPlans.filter((p) => !weekKeys.has(p.date));
   }, [sortedPlans, weekContext.dayCells]);
+
+  const weekStats = useMemo(() => {
+    const weekKeys = new Set(weekContext.dayCells.map((c) => c.dateKey));
+    let done = 0;
+    let missed = 0;
+    let total = 0;
+    for (const p of sortedPlans) {
+      if (!weekKeys.has(p.date)) continue;
+      total += 1;
+      if (p.completed) done += 1;
+      else if (p.missed) missed += 1;
+    }
+    return { done, missed, total };
+  }, [sortedPlans, weekContext.dayCells]);
+
+  const allStats = useMemo(() => {
+    const total = sortedPlans.length;
+    const done = sortedPlans.filter((p) => p.completed).length;
+    const missed = sortedPlans.filter((p) => p.missed).length;
+    return { done, missed, total };
+  }, [sortedPlans]);
 
   useEffect(() => {
     const t = window.setInterval(() => setNowTick((v) => v + 1), 30000);
@@ -142,96 +177,140 @@ export function StudyPlanner({
 
   return (
     <div className="study-planner">
-      <section className="study-planner__card study-planner__card--form" aria-labelledby="study-planner-heading">
-        <h2 id="study-planner-heading" className="study-planner__title">
-          Study planner
-        </h2>
-        <p className="study-planner__subtitle">
-          Plan when you will focus and what subject you want to tackle.
-        </p>
+      <div className="study-planner__row study-planner__row--schedule">
+        <section className="study-planner__card study-planner__card--form" aria-labelledby="study-planner-heading">
+          <h2 id="study-planner-heading" className="study-planner__title">
+            Study planner
+          </h2>
+          <p className="study-planner__subtitle">
+            Plan when you will focus and what subject you want to tackle.
+          </p>
 
-        <form className="study-planner__form" onSubmit={submit}>
-          <label className="study-planner__field">
-            <span>Date</span>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-          </label>
+          <form className="study-planner__form" onSubmit={submit}>
+            <label className="study-planner__field">
+              <span>Date</span>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+            </label>
 
-          <label className="study-planner__field">
-            <span>Start</span>
-            <input
-              type="time"
-              value={startTime}
-              onChange={(e) => {
-                const nextStart = e.target.value;
-                setStartTime(nextStart);
-                if (selectedDuration !== "custom") {
-                  setEndTime(addMinutesToTime(nextStart, selectedDuration));
-                }
-                if (timeError) setTimeError(null);
-              }}
-              required
-            />
-          </label>
+            <label className="study-planner__field">
+              <span>Start</span>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => {
+                  const nextStart = e.target.value;
+                  setStartTime(nextStart);
+                  if (selectedDuration !== "custom") {
+                    setEndTime(addMinutesToTime(nextStart, selectedDuration));
+                  }
+                  if (timeError) setTimeError(null);
+                }}
+                required
+              />
+            </label>
 
-          <div className="study-planner__field study-planner__field--wide">
-            <span>Duration</span>
-            <div className="study-planner__durations">
-              {DURATION_PRESETS.map((minutes) => (
+            <div className="study-planner__field study-planner__field--wide">
+              <span>Duration</span>
+              <div className="study-planner__durations">
+                {DURATION_PRESETS.map((minutes) => (
+                  <button
+                    key={minutes}
+                    type="button"
+                    className={`preset-btn ${selectedDuration === minutes ? "preset-btn--active" : ""}`}
+                    onClick={() => {
+                      setSelectedDuration(minutes);
+                      setEndTime(addMinutesToTime(startTime, minutes));
+                      if (timeError) setTimeError(null);
+                    }}
+                  >
+                    {minutes} min
+                  </button>
+                ))}
                 <button
-                  key={minutes}
                   type="button"
-                  className={`preset-btn ${selectedDuration === minutes ? "preset-btn--active" : ""}`}
-                  onClick={() => {
-                    setSelectedDuration(minutes);
-                    setEndTime(addMinutesToTime(startTime, minutes));
-                    if (timeError) setTimeError(null);
-                  }}
+                  className={`preset-btn ${selectedDuration === "custom" ? "preset-btn--active" : ""}`}
+                  onClick={() => setSelectedDuration("custom")}
                 >
-                  {minutes} min
+                  Custom end
                 </button>
-              ))}
-              <button
-                type="button"
-                className={`preset-btn ${selectedDuration === "custom" ? "preset-btn--active" : ""}`}
-                onClick={() => setSelectedDuration("custom")}
-              >
-                Custom end
-              </button>
+              </div>
+            </div>
+
+            <label className="study-planner__field">
+              <span>End</span>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => {
+                  setEndTime(e.target.value);
+                  setSelectedDuration("custom");
+                  if (timeError) setTimeError(null);
+                }}
+                required
+              />
+            </label>
+
+            <label className="study-planner__field study-planner__field--wide">
+              <span>Subject</span>
+              <input
+                type="text"
+                value={subject}
+                maxLength={100}
+                placeholder="e.g. Biology - chapter 4"
+                onChange={(e) => setSubject(e.target.value)}
+                required
+              />
+            </label>
+
+            <button type="submit" className="btn btn--primary">
+              Add focus block
+            </button>
+            {timeError && <p className="study-planner__error">{timeError}</p>}
+          </form>
+        </section>
+
+        <section
+          className="study-planner__card study-planner__card--stats"
+          aria-labelledby="study-planner-stats-heading"
+        >
+          <h2 id="study-planner-stats-heading" className="study-planner__title">
+            Progress
+          </h2>
+          <p className="study-planner__subtitle">
+            Compare blocks you finished versus ones you marked as missed.
+          </p>
+          <div className="study-planner__stats study-planner__stats--aside" aria-label="Planner done and missed stats">
+            <div className="study-planner__stat">
+              <span className="study-planner__stat-value study-planner__stat-value--pair">
+                <span className="study-planner__stat-part study-planner__stat-part--done">{weekStats.done} done</span>
+                <span className="study-planner__stat-sep" aria-hidden>
+                  ·
+                </span>
+                <span className="study-planner__stat-part study-planner__stat-part--missed">
+                  {weekStats.missed} missed
+                </span>
+              </span>
+              <span className="study-planner__stat-label">
+                This week · {weekStats.total} block{weekStats.total === 1 ? "" : "s"} on the grid
+              </span>
+            </div>
+            <div className="study-planner__stat">
+              <span className="study-planner__stat-value study-planner__stat-value--pair">
+                <span className="study-planner__stat-part study-planner__stat-part--done">{allStats.done} done</span>
+                <span className="study-planner__stat-sep" aria-hidden>
+                  ·
+                </span>
+                <span className="study-planner__stat-part study-planner__stat-part--missed">
+                  {allStats.missed} missed
+                </span>
+              </span>
+              <span className="study-planner__stat-label">
+                All planned blocks ({allStats.total} total)
+              </span>
             </div>
           </div>
-
-          <label className="study-planner__field">
-            <span>End</span>
-            <input
-              type="time"
-              value={endTime}
-              onChange={(e) => {
-                setEndTime(e.target.value);
-                setSelectedDuration("custom");
-                if (timeError) setTimeError(null);
-              }}
-              required
-            />
-          </label>
-
-          <label className="study-planner__field study-planner__field--wide">
-            <span>Subject</span>
-            <input
-              type="text"
-              value={subject}
-              maxLength={100}
-              placeholder="e.g. Biology - chapter 4"
-              onChange={(e) => setSubject(e.target.value)}
-              required
-            />
-          </label>
-
-          <button type="submit" className="btn btn--primary">
-            Add focus block
-          </button>
-          {timeError && <p className="study-planner__error">{timeError}</p>}
-        </form>
-      </section>
+        </section>
+      </div>
 
       <section
         className="study-planner__card study-planner__card--week"
@@ -299,7 +378,30 @@ export function StudyPlanner({
                           <li className="study-planner__week-empty">—</li>
                         ) : (
                           dayPlans.map((plan) => (
-                            <li key={plan.id} className="study-planner__week-block">
+                            <li
+                              key={plan.id}
+                              className={`study-planner__week-block ${plan.completed ? "study-planner__week-block--completed" : ""} ${plan.missed ? "study-planner__week-block--missed" : ""}`}
+                            >
+                              <div className="study-planner__week-outcomes">
+                                <label className="study-planner__week-done">
+                                  <input
+                                    type="checkbox"
+                                    checked={plan.completed}
+                                    onChange={(e) => onTogglePlanCompleted(plan.id, e.target.checked)}
+                                    aria-label={`Mark ${plan.completed ? "not done" : "done"}: ${plan.subject}`}
+                                  />
+                                  <span className="study-planner__week-done-label">Done</span>
+                                </label>
+                                <label className="study-planner__week-missed">
+                                  <input
+                                    type="checkbox"
+                                    checked={plan.missed}
+                                    onChange={(e) => onTogglePlanMissed(plan.id, e.target.checked)}
+                                    aria-label={`Mark ${plan.missed ? "not missed" : "missed"}: ${plan.subject}`}
+                                  />
+                                  <span className="study-planner__week-missed-label">Missed</span>
+                                </label>
+                              </div>
                               <p className="study-planner__week-block-subject" title={plan.subject}>
                                 {plan.subject}
                               </p>
@@ -307,7 +409,7 @@ export function StudyPlanner({
                                 {plan.startTime}–{plan.endTime}
                               </p>
                               <div className="study-planner__week-block-actions">
-                                {canStartPlanNow(plan) && (
+                                {canStartPlanNow(plan) && !plan.completed && !plan.missed && (
                                   <button
                                     type="button"
                                     className="btn btn--primary study-planner__start"

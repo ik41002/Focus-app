@@ -22,10 +22,14 @@ export interface StudyPlanItem {
   /** 24h time HH:mm */
   endTime: string;
   subject: string;
+  /** Manually marked done in the planner */
+  completed: boolean;
+  /** Manually marked missed (mutually exclusive with completed) */
+  missed: boolean;
 }
 
 export interface PersistedState {
-  version: 6;
+  version: 8;
   totalFocusSeconds: number;
   sparkleCoins: number;
   streakDays: number;
@@ -39,6 +43,10 @@ export interface PersistedState {
   lastSessionLabel: string;
   /** Planned future focus blocks */
   studyPlan: StudyPlanItem[];
+  /** Times you marked a planned block complete (only increases on check-off, not on uncheck) */
+  studyPlanLifetimeCheckoffs: number;
+  /** Times you marked a planned block missed (only increases when checking missed on, not on uncheck) */
+  studyPlanLifetimeMisses: number;
 }
 
 export const COINS_PER_FOCUS_MINUTE = 2;

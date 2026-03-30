@@ -141,7 +141,12 @@ function isPlannedStudyTime(
   focusedSeconds: number,
   sessionLabel: string
 ) {
-  return studyPlan.some((item) => qualifiesForPlannedBonus(item, startedAt, focusedSeconds, sessionLabel));
+  return studyPlan.some(
+    (item) =>
+      !item.completed &&
+      !item.missed &&
+      qualifiesForPlannedBonus(item, startedAt, focusedSeconds, sessionLabel)
+  );
 }
 
 export function App() {
@@ -304,7 +309,7 @@ export function App() {
   };
 
   const startPlannedSession = (plan: StudyPlanItem) => {
-    if (phase === "running") return;
+    if (phase === "running" || plan.completed || plan.missed) return;
     const startMin = hhmmToMinutes(plan.startTime);
     const endMin = hhmmToMinutes(plan.endTime);
     if (startMin == null || endMin == null || endMin <= startMin) {
@@ -679,7 +684,15 @@ export function App() {
               canStartPlanNow={(plan) => phase === "idle" && isPlanTimeMatch(plan, new Date())}
               onStartPlanFocus={startPlannedSession}
               onAddPlan={({ date, startTime, endTime, subject }) => {
-                const nextItem = { id: newStudyPlanId(), date, startTime, endTime, subject };
+                const nextItem = {
+                  id: newStudyPlanId(),
+                  date,
+                  startTime,
+                  endTime,
+                  subject,
+                  completed: false,
+                  missed: false,
+                };
                 persist({ ...stateRef.current, studyPlan: [...stateRef.current.studyPlan, nextItem] });
                 showToast(`Added study block: ${subject}`);
               }}
@@ -689,6 +702,28 @@ export function App() {
                 if (next.length === before.length) return;
                 persist({ ...stateRef.current, studyPlan: next });
                 showToast("Removed study block.");
+              }}
+              onTogglePlanCompleted={(id, completed) => {
+                const s = stateRef.current;
+                const plan = s.studyPlan.find((p) => p.id === id);
+                if (!plan || plan.completed === completed) return;
+                const nextPlans = s.studyPlan.map((p) =>
+                  p.id === id ? { ...p, completed, missed: completed ? false : p.missed } : p
+                );
+                let lifetime = s.studyPlanLifetimeCheckoffs;
+                if (completed) lifetime += 1;
+                persist({ ...s, studyPlan: nextPlans, studyPlanLifetimeCheckoffs: lifetime });
+              }}
+              onTogglePlanMissed={(id, missed) => {
+                const s = stateRef.current;
+                const plan = s.studyPlan.find((p) => p.id === id);
+                if (!plan || plan.missed === missed) return;
+                const nextPlans = s.studyPlan.map((p) =>
+                  p.id === id ? { ...p, missed, completed: missed ? false : p.completed } : p
+                );
+                let lifetimeMisses = s.studyPlanLifetimeMisses;
+                if (missed) lifetimeMisses += 1;
+                persist({ ...s, studyPlan: nextPlans, studyPlanLifetimeMisses: lifetimeMisses });
               }}
             />
           </div>

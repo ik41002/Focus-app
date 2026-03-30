@@ -10,7 +10,7 @@ const defaultAppearance: Appearance = {
 export const APP_FONT_STACK = '"Quicksand", system-ui, sans-serif';
 
 export const defaultState: PersistedState = {
-  version: 6,
+  version: 8,
   totalFocusSeconds: 0,
   sparkleCoins: 0,
   streakDays: 0,
@@ -20,6 +20,8 @@ export const defaultState: PersistedState = {
   sessions: [],
   lastSessionLabel: "",
   studyPlan: [],
+  studyPlanLifetimeCheckoffs: 0,
+  studyPlanLifetimeMisses: 0,
 };
 
 function migrate(raw: unknown): PersistedState {
@@ -27,7 +29,8 @@ function migrate(raw: unknown): PersistedState {
   if (!raw || typeof raw !== "object") return base;
   const p = raw as Record<string, unknown>;
   const ver = p.version;
-  if (ver !== 1 && ver !== 2 && ver !== 3 && ver !== 4 && ver !== 5 && ver !== 6) return base;
+  if (ver !== 1 && ver !== 2 && ver !== 3 && ver !== 4 && ver !== 5 && ver !== 6 && ver !== 7 && ver !== 8)
+    return base;
 
   const appearance = {
     ...defaultAppearance,
@@ -51,6 +54,8 @@ function migrate(raw: unknown): PersistedState {
       sessions: [],
       lastSessionLabel: "",
       studyPlan: [],
+      studyPlanLifetimeCheckoffs: 0,
+      studyPlanLifetimeMisses: 0,
     };
   }
 
@@ -73,11 +78,18 @@ function migrate(raw: unknown): PersistedState {
               : startTime === "23:59"
                 ? "23:59"
                 : "17:00";
+          const completed = typeof row.completed === "boolean" ? row.completed : false;
+          const missed = typeof row.missed === "boolean" ? row.missed : false;
+          const resolvedMissed = completed ? false : missed;
 
-          return { id, date, subject, startTime, endTime };
+          return { id, date, subject, startTime, endTime, completed, missed: resolvedMissed };
         })
         .filter((item): item is PersistedState["studyPlan"][number] => item != null)
     : [];
+  const studyPlanLifetimeCheckoffs =
+    typeof p.studyPlanLifetimeCheckoffs === "number" ? p.studyPlanLifetimeCheckoffs : 0;
+  const studyPlanLifetimeMisses =
+    typeof p.studyPlanLifetimeMisses === "number" ? p.studyPlanLifetimeMisses : 0;
   return {
     ...base,
     totalFocusSeconds: typeof p.totalFocusSeconds === "number" ? p.totalFocusSeconds : 0,
@@ -92,6 +104,9 @@ function migrate(raw: unknown): PersistedState {
     sessions,
     lastSessionLabel: typeof p.lastSessionLabel === "string" ? p.lastSessionLabel : "",
     studyPlan,
+    studyPlanLifetimeCheckoffs,
+    studyPlanLifetimeMisses,
+    version: 8,
   };
 }
 
