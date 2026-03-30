@@ -140,6 +140,310 @@
   gap: 1.25rem;
 }
 
+.app-buddy-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.buddy-environment {
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.1rem 1.5rem;
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.2) 48%,
+    color-mix(in srgb, var(--color-accent-soft) 85%, transparent) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+}
+
+.buddy-environment__intro {
+  text-align: center;
+  max-width: 36ch;
+  margin-inline: auto;
+}
+
+.buddy-environment__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.buddy-environment__lede {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+.buddy-environment__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  min-height: min(48vh, 380px);
+  justify-content: center;
+}
+
+.buddy-environment__name {
+  margin: 0.65rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.buddy-environment__caption {
+  margin-top: 0.25rem;
+}
+
+.buddy-environment__reaction {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-align: center;
+  animation: buddy-reaction-in 0.2s ease;
+}
+
+.sprout-buddy {
+  width: clamp(7rem, 28vw, 9.75rem);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  transform-origin: 50% 88%;
+}
+
+.sprout-buddy--interactive {
+  cursor: pointer;
+}
+
+.sprout-buddy--interactive:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 74%, var(--color-text));
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+
+.sprout-buddy__svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.sprout-buddy__shadow {
+  fill: rgba(0, 0, 0, 0.12);
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  transform-origin: center;
+}
+
+.sprout-buddy__body-group {
+  transform-origin: 110px 164px;
+  animation: sprout-bob-cycle 8s ease-in-out infinite;
+}
+
+.sprout-buddy__stem {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-accent) 62%, #2f855a);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.sprout-buddy__leaf {
+  fill: color-mix(in srgb, var(--color-accent) 55%, #22c55e);
+  stroke: color-mix(in srgb, var(--color-accent) 72%, #166534);
+  stroke-width: 2.2;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.25s ease, fill 0.25s ease, opacity 0.25s ease;
+  animation: sprout-leaf-sway 8s ease-in-out infinite;
+}
+
+.sprout-buddy__face {
+  fill: url(#sprout-face-grad);
+  stroke: rgba(255, 255, 255, 0.52);
+  stroke-width: 2;
+}
+
+.sprout-buddy__eye {
+  fill: color-mix(in srgb, var(--color-text) 86%, #1b2a22);
+}
+
+.sprout-buddy__eyes {
+  transform-origin: 110px 138px;
+  animation: sprout-blink 8s ease-in-out infinite;
+}
+
+.sprout-buddy__mouth {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-text) 80%, #2b3a30);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.25s ease;
+}
+
+.sprout-buddy__blush {
+  fill: color-mix(in srgb, var(--color-accent) 26%, #ff9fb3);
+  opacity: 0.55;
+}
+
+.sprout-buddy--waiting .sprout-buddy__body-group {
+  transform: rotate(-4deg) translateY(3px);
+}
+
+.sprout-buddy--waiting .sprout-buddy__leaf--left {
+  transform: rotate(22deg) translateY(6px);
+}
+
+.sprout-buddy--waiting .sprout-buddy__leaf--right {
+  transform: rotate(-22deg) translateY(6px);
+}
+
+.sprout-buddy--waiting .sprout-buddy__mouth {
+  transform: translateY(4px) scaleY(-0.85);
+}
+
+.sprout-buddy--waiting .sprout-buddy__shadow {
+  opacity: 0.65;
+  transform: scaleX(0.92);
+}
+
+.sprout-buddy--content .sprout-buddy__leaf--left {
+  transform: rotate(5deg);
+}
+
+.sprout-buddy--content .sprout-buddy__leaf--right {
+  transform: rotate(-5deg);
+}
+
+.sprout-buddy--radiant {
+  animation: sprout-pop 0.8s ease;
+}
+
+.sprout-buddy--radiant .sprout-buddy__body-group {
+  animation-duration: 6s;
+}
+
+.sprout-buddy--radiant .sprout-buddy__leaf--left {
+  transform: rotate(-8deg) translateY(-3px);
+}
+
+.sprout-buddy--radiant .sprout-buddy__leaf--right {
+  transform: rotate(8deg) translateY(-3px);
+}
+
+.sprout-buddy--radiant .sprout-buddy__face {
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--color-accent) 38%, transparent));
+}
+
+@keyframes sprout-bob-cycle {
+  0%,
+  40%,
+  100% {
+    transform: translateY(0);
+  }
+  44% {
+    transform: translateY(-1.5px);
+  }
+  48% {
+    transform: translateY(0);
+  }
+  52% {
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes sprout-leaf-sway {
+  0%,
+  40%,
+  100% {
+    rotate: 0deg;
+  }
+  45% {
+    rotate: 2deg;
+  }
+  50% {
+    rotate: -1.5deg;
+  }
+}
+
+@keyframes sprout-blink {
+  0%,
+  43%,
+  48%,
+  82%,
+  87%,
+  100% {
+    transform: scaleY(1);
+  }
+  45%,
+  84% {
+    transform: scaleY(0.12);
+  }
+}
+
+@keyframes sprout-wave {
+  0% {
+    transform: rotate(0deg) translateY(0);
+  }
+  20% {
+    transform: rotate(-7deg) translateY(-0.5px);
+  }
+  40% {
+    transform: rotate(7deg) translateY(-1px);
+  }
+  60% {
+    transform: rotate(-5deg) translateY(-0.5px);
+  }
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+}
+
+.sprout-buddy--wave .sprout-buddy__body-group {
+  animation: sprout-wave 0.9s ease;
+}
+
+@keyframes sprout-pop {
+  0% {
+    transform: scale(0.95);
+  }
+  70% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes buddy-reaction-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.buddy-environment__stat {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.buddy-environment__cta {
+  margin-top: 0.75rem;
+}
+
 .history-month-recent {
   display: flex;
   flex-wrap: wrap;
@@ -189,6 +493,11 @@
 
 .mascot__bubble--pop {
   transform: scale(1.08) rotate(-4deg);
+}
+
+.mascot__bubble--dim {
+  opacity: 0.9;
+  filter: saturate(0.72);
 }
 
 .mascot__emoji {

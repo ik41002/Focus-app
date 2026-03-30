@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FocusChart } from "./components/FocusChart";
 import { FocusMonthHeatmap } from "./components/FocusMonthHeatmap";
 import { RecentSessionsPie } from "./components/RecentSessionsPie";
-import { Mascot } from "./components/Mascot";
+import { BuddyEnvironment } from "./components/BuddyEnvironment";
+import { SproutBuddy } from "./components/SproutBuddy";
 import "./App.css";
 import { applyThemeToDocument, THEMES } from "./themes";
 import { APP_FONT_STACK, loadState, saveState } from "./storage";
 import {
   dailyFocusSeriesBySubject,
+  focusSecondsForDate,
   newFocusSessionId,
   nextStreakState,
   todayKey,
@@ -16,7 +18,7 @@ import type { Appearance, ThemeId } from "./types";
 import { COINS_PER_FOCUS_MINUTE, STREAK_BONUS_COINS } from "./types";
 
 type Phase = "idle" | "running";
-type AppTab = "focus" | "history";
+type AppTab = "focus" | "history" | "buddy";
 
 const PRESETS = [15, 25, 45] as const;
 
@@ -91,6 +93,17 @@ export function App() {
       year: "numeric",
     });
   }, [pieSelectedDateKey]);
+
+  const todayFocusSeconds = useMemo(
+    () => focusSecondsForDate(state.sessions, todayKey()),
+    [state.sessions]
+  );
+  const focusBuddyMood = useMemo(() => {
+    if (celebrate) return "radiant" as const;
+    if (todayFocusSeconds <= 0) return "waiting" as const;
+    if (todayFocusSeconds < 25 * 60) return "content" as const;
+    return "radiant" as const;
+  }, [celebrate, todayFocusSeconds]);
 
   const clearTick = useCallback(() => {
     if (tickRef.current != null) {
@@ -248,6 +261,19 @@ export function App() {
           >
             History
           </button>
+          <button
+            type="button"
+            role="tab"
+            id="tab-buddy"
+            aria-selected={appTab === "buddy"}
+            aria-controls="panel-buddy"
+            disabled={phase === "running"}
+            title={phase === "running" ? "Finish or cancel your session to visit your buddy" : undefined}
+            className={`app-tabs__btn ${appTab === "buddy" ? "app-tabs__btn--active" : ""}`}
+            onClick={() => setAppTab("buddy")}
+          >
+            Buddy
+          </button>
         </div>
 
         {appTab === "focus" && (
@@ -259,7 +285,13 @@ export function App() {
           >
         <div className="app__main">
           <div className="app__buddy">
-            <Mascot celebrating={celebrate} streakDays={state.streakDays} />
+            <SproutBuddy mood={focusBuddyMood} />
+            <p className="buddy-environment__name">Sprout</p>
+            <p className="mascot__caption">
+              {state.streakDays > 0
+                ? `${state.streakDays}-day streak - you're doing amazing!`
+                : "Keep showing up - we grow together."}
+            </p>
           </div>
 
           <section className="timer-card timer-card--aside" aria-labelledby="timer-heading">
@@ -447,6 +479,20 @@ export function App() {
                 </section>
               )}
             </div>
+          </div>
+        )}
+
+        {appTab === "buddy" && (
+          <div
+            className="app-buddy-panel"
+            id="panel-buddy"
+            role="tabpanel"
+            aria-labelledby="tab-buddy"
+          >
+            <BuddyEnvironment
+              todayFocusSeconds={todayFocusSeconds}
+              onGoFocus={() => setAppTab("focus")}
+            />
           </div>
         )}
 
