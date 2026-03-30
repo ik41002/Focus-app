@@ -3,7 +3,7 @@ import { FocusChart } from "./components/FocusChart";
 import { FocusMonthHeatmap } from "./components/FocusMonthHeatmap";
 import { RecentSessionsPie } from "./components/RecentSessionsPie";
 import { BuddyEnvironment } from "./components/BuddyEnvironment";
-import { Mascot } from "./components/Mascot";
+import { SproutBuddy } from "./components/SproutBuddy";
 import "./App.css";
 import { applyThemeToDocument, THEMES } from "./themes";
 import { APP_FONT_STACK, loadState, saveState } from "./storage";
@@ -98,6 +98,12 @@ export function App() {
     () => focusSecondsForDate(state.sessions, todayKey()),
     [state.sessions]
   );
+  const focusBuddyMood = useMemo(() => {
+    if (celebrate) return "radiant" as const;
+    if (todayFocusSeconds <= 0) return "waiting" as const;
+    if (todayFocusSeconds < 25 * 60) return "content" as const;
+    return "radiant" as const;
+  }, [celebrate, todayFocusSeconds]);
 
   const clearTick = useCallback(() => {
     if (tickRef.current != null) {
@@ -279,7 +285,13 @@ export function App() {
           >
         <div className="app__main">
           <div className="app__buddy">
-            <Mascot celebrating={celebrate} streakDays={state.streakDays} />
+            <SproutBuddy mood={focusBuddyMood} />
+            <p className="buddy-environment__name">Sprout</p>
+            <p className="mascot__caption">
+              {state.streakDays > 0
+                ? `${state.streakDays}-day streak - you're doing amazing!`
+                : "Keep showing up - we grow together."}
+            </p>
           </div>
 
           <section className="timer-card timer-card--aside" aria-labelledby="timer-heading">
