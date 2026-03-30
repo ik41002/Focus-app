@@ -71,31 +71,11 @@ function isPlanTimeMatch(plan: { date: string; startTime: string; endTime: strin
   return atMin >= startWithLeeway && atMin < endMin;
 }
 
-function isPlanExpired(plan: { date: string; endTime: string }, at: Date) {
-  const year = at.getFullYear();
-  const month = String(at.getMonth() + 1).padStart(2, "0");
-  const day = String(at.getDate()).padStart(2, "0");
-  const dateKey = `${year}-${month}-${day}`;
-  const nowMin = at.getHours() * 60 + at.getMinutes();
-  const endMin = hhmmToMinutes(plan.endTime);
-  if (endMin == null) return false;
-  if (plan.date < dateKey) return true;
-  if (plan.date > dateKey) return false;
-  return nowMin >= endMin;
-}
-
 function isPlannedStudyTime(
   studyPlan: { date: string; startTime: string; endTime: string }[],
   startedAt: Date | null
 ) {
   return studyPlan.some((item) => isPlanTimeMatch(item, startedAt));
-}
-
-function findMatchingPlannedIndex(
-  studyPlan: { date: string; startTime: string; endTime: string }[],
-  startedAt: Date | null
-) {
-  return studyPlan.findIndex((item) => isPlanTimeMatch(item, startedAt));
 }
 
 export function App() {
@@ -184,19 +164,19 @@ export function App() {
   }, []);
 
   const creditSession = useCallback(
-    (focusedSeconds: number, startedAt: Date | null) => {
+    (focusedSeconds: number, startedAtFromCaller: Date | null) => {
+      const effectiveStartedAt = startedAtFromCaller ?? sessionStartedAtRef.current;
       const s = stateRef.current;
       const wholeMinutes = Math.floor(focusedSeconds / 60);
       if (wholeMinutes < 1) {
         showToast("Focus at least 1 minute to earn sparkles ✨");
+        sessionStartedAtRef.current = null;
         return;
       }
       const baseCoins = wholeMinutes * COINS_PER_FOCUS_MINUTE;
       const streakInfo = nextStreakState(s.streakDays, s.lastFocusDate, todayKey());
       const bonus = streakInfo.streakJustIncreased ? STREAK_BONUS_COINS : 0;
-      const isPlanned = isPlannedStudyTime(s.studyPlan, startedAt);
-      const matchedPlanIdx = findMatchingPlannedIndex(s.studyPlan, startedAt);
-      const matchedPlan = matchedPlanIdx >= 0 ? s.studyPlan[matchedPlanIdx] : null;
+      const isPlanned = isPlannedStudyTime(s.studyPlan, effectiveStartedAt);
       const earned = (baseCoins + bonus) * (isPlanned ? 2 : 1);
       const label = sessionLabelRef.current.trim();
       const entry = {
@@ -206,13 +186,6 @@ export function App() {
         label,
       };
 
-      const nextStudyPlan =
-        matchedPlanIdx >= 0
-          ? s.studyPlan.filter((_, idx) => idx !== matchedPlanIdx)
-          : s.studyPlan;
-      const nextCompletedStudyPlan =
-        matchedPlan != null ? [...s.completedStudyPlan, matchedPlan] : s.completedStudyPlan;
-
       persist({
         ...s,
         totalFocusSeconds: s.totalFocusSeconds + focusedSeconds,
@@ -221,8 +194,6 @@ export function App() {
         lastFocusDate: streakInfo.lastFocusDate,
         sessions: [...s.sessions, entry],
         lastSessionLabel: label,
-        studyPlan: nextStudyPlan,
-        completedStudyPlan: nextCompletedStudyPlan,
       });
 
       setCelebrate(true);
@@ -238,6 +209,7 @@ export function App() {
           streakBit ? "." + streakBit : ""
         }${plannedBit}`
       );
+      sessionStartedAtRef.current = null;
     },
     [persist, showToast]
   );
@@ -256,9 +228,7 @@ export function App() {
           clearTick();
           setPhase("idle");
           const g = startedGoalSecRef.current;
-          const startedAt = sessionStartedAtRef.current;
-          sessionStartedAtRef.current = null;
-          window.setTimeout(() => creditSession(g, startedAt), 0);
+          window.setTimeout(() => creditSession(g, null), 0);
           return 0;
         }
         return prev - 1;
@@ -300,9 +270,7 @@ export function App() {
           clearTick();
           setPhase("idle");
           const g = startedGoalSecRef.current;
-          const startedAt = sessionStartedAtRef.current;
-          sessionStartedAtRef.current = null;
-          window.setTimeout(() => creditSession(g, startedAt), 0);
+          window.setTimeout(() => creditSession(g, null), 0);
           return 0;
         }
         return prev - 1;
@@ -314,11 +282,9 @@ export function App() {
     if (phase !== "running") return;
     clearTick();
     const elapsed = startedGoalSecRef.current - remainingSec;
-    const startedAt = sessionStartedAtRef.current;
-    sessionStartedAtRef.current = null;
     setPhase("idle");
     setRemainingSec(0);
-    creditSession(elapsed, startedAt);
+    creditSession(elapsed, null);
   };
 
   const cancelSession = () => {
@@ -331,28 +297,6 @@ export function App() {
   };
 
   useEffect(() => () => clearTick(), [clearTick]);
-
-  useEffect(() => {
-    const moveForgottenPlans = () => {
-      if (phase === "running") return;
-      const s = stateRef.current;
-      if (s.studyPlan.length === 0) return;
-      const now = new Date();
-      const forgotten = s.studyPlan.filter((item) => isPlanExpired(item, now));
-      if (forgotten.length === 0) return;
-      const active = s.studyPlan.filter((item) => !isPlanExpired(item, now));
-      persist({
-        ...s,
-        studyPlan: active,
-        forgottenStudyPlan: [...s.forgottenStudyPlan, ...forgotten],
-      });
-      showToast(`${forgotten.length} planned block${forgotten.length === 1 ? "" : "s"} moved to forgotten.`);
-    };
-
-    moveForgottenPlans();
-    const t = window.setInterval(moveForgottenPlans, 30000);
-    return () => window.clearInterval(t);
-  }, [persist, phase, showToast]);
 
   const progress =
     phase === "running" && startedGoalSecRef.current > 0
@@ -664,8 +608,6 @@ export function App() {
           >
             <StudyPlanner
               plans={state.studyPlan}
-              completedPlans={state.completedStudyPlan}
-              forgottenPlans={state.forgottenStudyPlan}
               canStartPlanNow={(plan) => phase === "idle" && isPlanTimeMatch(plan, new Date())}
               onStartPlanFocus={startPlannedSession}
               onAddPlan={({ date, startTime, endTime, subject }) => {
@@ -679,20 +621,6 @@ export function App() {
                 if (next.length === before.length) return;
                 persist({ ...stateRef.current, studyPlan: next });
                 showToast("Removed study block.");
-              }}
-              onRemoveCompletedPlan={(id) => {
-                const before = stateRef.current.completedStudyPlan;
-                const next = before.filter((item) => item.id !== id);
-                if (next.length === before.length) return;
-                persist({ ...stateRef.current, completedStudyPlan: next });
-                showToast("Removed completed study block.");
-              }}
-              onRemoveForgottenPlan={(id) => {
-                const before = stateRef.current.forgottenStudyPlan;
-                const next = before.filter((item) => item.id !== id);
-                if (next.length === before.length) return;
-                persist({ ...stateRef.current, forgottenStudyPlan: next });
-                showToast("Removed forgotten study block.");
               }}
             />
           </div>

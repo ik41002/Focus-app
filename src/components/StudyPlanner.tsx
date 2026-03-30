@@ -13,6 +13,13 @@ function formatPlanDate(date: string) {
   });
 }
 
+function localDateKey(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function comparePlanItems(a: StudyPlanItem, b: StudyPlanItem) {
   if (a.date !== b.date) return a.date.localeCompare(b.date);
   return a.startTime.localeCompare(b.startTime);
@@ -32,26 +39,18 @@ function addMinutesToTime(time: string, minutesToAdd: number) {
 
 export function StudyPlanner({
   plans,
-  completedPlans,
-  forgottenPlans,
   canStartPlanNow,
   onStartPlanFocus,
   onAddPlan,
   onRemovePlan,
-  onRemoveCompletedPlan,
-  onRemoveForgottenPlan,
 }: {
   plans: StudyPlanItem[];
-  completedPlans: StudyPlanItem[];
-  forgottenPlans: StudyPlanItem[];
   canStartPlanNow: (plan: StudyPlanItem) => boolean;
   onStartPlanFocus: (plan: StudyPlanItem) => void;
   onAddPlan: (input: { date: string; startTime: string; endTime: string; subject: string }) => void;
   onRemovePlan: (id: string) => void;
-  onRemoveCompletedPlan: (id: string) => void;
-  onRemoveForgottenPlan: (id: string) => void;
 }) {
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(() => localDateKey(), []);
   const [date, setDate] = useState(today);
   const [startTime, setStartTime] = useState("16:00");
   const [endTime, setEndTime] = useState("17:00");
@@ -61,8 +60,6 @@ export function StudyPlanner({
   const [nowTick, setNowTick] = useState(0);
 
   const sortedPlans = useMemo(() => [...plans].sort(comparePlanItems), [plans]);
-  const sortedCompletedPlans = useMemo(() => [...completedPlans].sort(comparePlanItems), [completedPlans]);
-  const sortedForgottenPlans = useMemo(() => [...forgottenPlans].sort(comparePlanItems), [forgottenPlans]);
 
   useEffect(() => {
     const t = window.setInterval(() => setNowTick((v) => v + 1), 30000);
@@ -210,70 +207,6 @@ export function StudyPlanner({
                     className="study-planner__remove"
                     onClick={() => onRemovePlan(plan.id)}
                     aria-label={`Remove ${plan.subject} on ${plan.date} from ${plan.startTime} to ${plan.endTime}`}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="study-planner__card" aria-labelledby="study-plan-completed-heading">
-        <h2 id="study-plan-completed-heading" className="study-planner__title">
-          Completed plan
-        </h2>
-        {sortedCompletedPlans.length === 0 ? (
-          <p className="study-planner__empty">Completed planned sessions will appear here.</p>
-        ) : (
-          <ul className="study-planner__list">
-            {sortedCompletedPlans.map((plan) => (
-              <li key={plan.id} className="study-planner__item">
-                <div className="study-planner__item-main">
-                  <p className="study-planner__item-subject">{plan.subject}</p>
-                  <p className="study-planner__item-time">
-                    {formatPlanDate(plan.date)} · {plan.startTime} - {plan.endTime}
-                  </p>
-                </div>
-                <div className="study-planner__item-actions">
-                  <button
-                    type="button"
-                    className="study-planner__remove"
-                    onClick={() => onRemoveCompletedPlan(plan.id)}
-                    aria-label={`Remove completed ${plan.subject} on ${plan.date}`}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="study-planner__card" aria-labelledby="study-plan-forgotten-heading">
-        <h2 id="study-plan-forgotten-heading" className="study-planner__title">
-          Forgotten box
-        </h2>
-        {sortedForgottenPlans.length === 0 ? (
-          <p className="study-planner__empty">Missed planned sessions are kept here so they are not forgotten.</p>
-        ) : (
-          <ul className="study-planner__list">
-            {sortedForgottenPlans.map((plan) => (
-              <li key={plan.id} className="study-planner__item">
-                <div className="study-planner__item-main">
-                  <p className="study-planner__item-subject">{plan.subject}</p>
-                  <p className="study-planner__item-time">
-                    {formatPlanDate(plan.date)} · {plan.startTime} - {plan.endTime}
-                  </p>
-                </div>
-                <div className="study-planner__item-actions">
-                  <button
-                    type="button"
-                    className="study-planner__remove"
-                    onClick={() => onRemoveForgottenPlan(plan.id)}
-                    aria-label={`Remove forgotten ${plan.subject} on ${plan.date}`}
                   >
                     Remove
                   </button>

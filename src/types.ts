@@ -25,7 +25,7 @@ export interface StudyPlanItem {
 }
 
 export interface PersistedState {
-  version: 5;
+  version: 6;
   totalFocusSeconds: number;
   sparkleCoins: number;
   streakDays: number;
@@ -39,10 +39,6 @@ export interface PersistedState {
   lastSessionLabel: string;
   /** Planned future focus blocks */
   studyPlan: StudyPlanItem[];
-  /** Planned blocks completed through focus sessions */
-  completedStudyPlan: StudyPlanItem[];
-  /** Planned blocks that were not completed in time */
-  forgottenStudyPlan: StudyPlanItem[];
 }
 
 export const COINS_PER_FOCUS_MINUTE = 2;

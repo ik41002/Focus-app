@@ -10,7 +10,7 @@ const defaultAppearance: Appearance = {
 export const APP_FONT_STACK = '"Quicksand", system-ui, sans-serif';
 
 export const defaultState: PersistedState = {
-  version: 5,
+  version: 6,
   totalFocusSeconds: 0,
   sparkleCoins: 0,
   streakDays: 0,
@@ -20,8 +20,6 @@ export const defaultState: PersistedState = {
   sessions: [],
   lastSessionLabel: "",
   studyPlan: [],
-  completedStudyPlan: [],
-  forgottenStudyPlan: [],
 };
 
 function migrate(raw: unknown): PersistedState {
@@ -29,7 +27,7 @@ function migrate(raw: unknown): PersistedState {
   if (!raw || typeof raw !== "object") return base;
   const p = raw as Record<string, unknown>;
   const ver = p.version;
-  if (ver !== 1 && ver !== 2 && ver !== 3 && ver !== 4 && ver !== 5) return base;
+  if (ver !== 1 && ver !== 2 && ver !== 3 && ver !== 4 && ver !== 5 && ver !== 6) return base;
 
   const appearance = {
     ...defaultAppearance,
@@ -80,12 +78,6 @@ function migrate(raw: unknown): PersistedState {
         })
         .filter((item): item is PersistedState["studyPlan"][number] => item != null)
     : [];
-  const completedStudyPlan = Array.isArray(p.completedStudyPlan)
-    ? (p.completedStudyPlan as PersistedState["completedStudyPlan"])
-    : [];
-  const forgottenStudyPlan = Array.isArray(p.forgottenStudyPlan)
-    ? (p.forgottenStudyPlan as PersistedState["forgottenStudyPlan"])
-    : [];
   return {
     ...base,
     totalFocusSeconds: typeof p.totalFocusSeconds === "number" ? p.totalFocusSeconds : 0,
@@ -100,8 +92,6 @@ function migrate(raw: unknown): PersistedState {
     sessions,
     lastSessionLabel: typeof p.lastSessionLabel === "string" ? p.lastSessionLabel : "",
     studyPlan,
-    completedStudyPlan,
-    forgottenStudyPlan,
   };
 }
 
