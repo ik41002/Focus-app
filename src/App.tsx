@@ -43,6 +43,37 @@ function newStudyPlanId() {
   return `plan-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+const PLANNED_TIME_LEEWAY_MIN = 5;
+
+function hhmmToMinutes(value: string) {
+  const [hRaw, mRaw] = value.split(":");
+  const h = Number.parseInt(hRaw, 10);
+  const m = Number.parseInt(mRaw, 10);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+function isPlannedStudyTime(
+  studyPlan: { date: string; startTime: string; endTime: string }[],
+  startedAt: Date | null
+) {
+  if (!startedAt) return false;
+  const year = startedAt.getFullYear();
+  const month = String(startedAt.getMonth() + 1).padStart(2, "0");
+  const day = String(startedAt.getDate()).padStart(2, "0");
+  const dateKey = `${year}-${month}-${day}`;
+  const startedAtMin = startedAt.getHours() * 60 + startedAt.getMinutes();
+  return studyPlan.some((item) => {
+    if (item.date !== dateKey) return false;
+    const startMin = hhmmToMinutes(item.startTime);
+    const endMin = hhmmToMinutes(item.endTime);
+    if (startMin == null || endMin == null) return false;
+    const startWithLeeway = Math.max(0, startMin - PLANNED_TIME_LEEWAY_MIN);
+    const endWithLeeway = Math.min(23 * 60 + 59, endMin + PLANNED_TIME_LEEWAY_MIN);
+    return startedAtMin >= startWithLeeway && startedAtMin < endWithLeeway;
+  });
+}
+
 export function App() {
   const [state, setState] = useState(() => loadState());
   const stateRef = useRef(state);
@@ -58,6 +89,7 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [sessionLabel, setSessionLabel] = useState(() => loadState().lastSessionLabel);
   const startedGoalSecRef = useRef(0);
+  const sessionStartedAtRef = useRef<Date | null>(null);
   const tickRef = useRef<number | null>(null);
   const sessionLabelRef = useRef(sessionLabel);
   sessionLabelRef.current = sessionLabel;
@@ -128,7 +160,7 @@ export function App() {
   }, []);
 
   const creditSession = useCallback(
-    (focusedSeconds: number) => {
+    (focusedSeconds: number, startedAt: Date | null) => {
       const s = stateRef.current;
       const wholeMinutes = Math.floor(focusedSeconds / 60);
       if (wholeMinutes < 1) {
@@ -138,7 +170,8 @@ export function App() {
       const baseCoins = wholeMinutes * COINS_PER_FOCUS_MINUTE;
       const streakInfo = nextStreakState(s.streakDays, s.lastFocusDate, todayKey());
       const bonus = streakInfo.streakJustIncreased ? STREAK_BONUS_COINS : 0;
-      const earned = baseCoins + bonus;
+      const isPlanned = isPlannedStudyTime(s.studyPlan, startedAt);
+      const earned = (baseCoins + bonus) * (isPlanned ? 2 : 1);
       const label = sessionLabelRef.current.trim();
       const entry = {
         id: newFocusSessionId(),
@@ -163,9 +196,12 @@ export function App() {
       const streakBit = streakInfo.streakJustIncreased
         ? ` Streak bonus +${STREAK_BONUS_COINS}!`
         : "";
+      const plannedBit = isPlanned ? " Planned-time bonus x2!" : "";
       const labelBit = label ? ` · ${label}` : "";
       showToast(
-        `+${earned} sparkles · ${wholeMinutes} min focus${labelBit}${streakBit ? "." + streakBit : ""}`
+        `+${earned} sparkles · ${wholeMinutes} min focus${labelBit}${
+          streakBit ? "." + streakBit : ""
+        }${plannedBit}`
       );
     },
     [persist, showToast]
@@ -174,6 +210,7 @@ export function App() {
   const startSession = () => {
     if (phase === "running") return;
     startedGoalSecRef.current = goalSeconds;
+    sessionStartedAtRef.current = new Date();
     setRemainingSec(goalSeconds);
     setPhase("running");
     persist({ ...stateRef.current, lastPreset: goalMin });
@@ -184,7 +221,9 @@ export function App() {
           clearTick();
           setPhase("idle");
           const g = startedGoalSecRef.current;
-          window.setTimeout(() => creditSession(g), 0);
+          const startedAt = sessionStartedAtRef.current;
+          sessionStartedAtRef.current = null;
+          window.setTimeout(() => creditSession(g, startedAt), 0);
           return 0;
         }
         return prev - 1;
@@ -196,14 +235,17 @@ export function App() {
     if (phase !== "running") return;
     clearTick();
     const elapsed = startedGoalSecRef.current - remainingSec;
+    const startedAt = sessionStartedAtRef.current;
+    sessionStartedAtRef.current = null;
     setPhase("idle");
     setRemainingSec(0);
-    creditSession(elapsed);
+    creditSession(elapsed, startedAt);
   };
 
   const cancelSession = () => {
     if (phase !== "running") return;
     clearTick();
+    sessionStartedAtRef.current = null;
     setPhase("idle");
     setRemainingSec(0);
     showToast("Session paused — your progress wasn’t saved.");
