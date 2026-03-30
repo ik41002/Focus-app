@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { StudyPlanItem } from "../types";
 
 const DURATION_PRESETS = [25, 45, 60] as const;
@@ -32,10 +32,14 @@ function addMinutesToTime(time: string, minutesToAdd: number) {
 
 export function StudyPlanner({
   plans,
+  canStartPlanNow,
+  onStartPlanFocus,
   onAddPlan,
   onRemovePlan,
 }: {
   plans: StudyPlanItem[];
+  canStartPlanNow: (plan: StudyPlanItem) => boolean;
+  onStartPlanFocus: (plan: StudyPlanItem) => void;
   onAddPlan: (input: { date: string; startTime: string; endTime: string; subject: string }) => void;
   onRemovePlan: (id: string) => void;
 }) {
@@ -46,8 +50,14 @@ export function StudyPlanner({
   const [subject, setSubject] = useState("");
   const [selectedDuration, setSelectedDuration] = useState<number | "custom">(60);
   const [timeError, setTimeError] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(0);
 
   const sortedPlans = useMemo(() => [...plans].sort(comparePlanItems), [plans]);
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNowTick((v) => v + 1), 30000);
+    return () => window.clearInterval(t);
+  }, []);
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -165,7 +175,7 @@ export function StudyPlanner({
             No focus blocks yet. Add your first one to start shaping your week.
           </p>
         ) : (
-          <ul className="study-planner__list">
+          <ul className="study-planner__list" data-now-tick={nowTick}>
             {sortedPlans.map((plan) => (
               <li key={plan.id} className="study-planner__item">
                 <div className="study-planner__item-main">
@@ -174,14 +184,26 @@ export function StudyPlanner({
                     {formatPlanDate(plan.date)} · {plan.startTime} - {plan.endTime}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className="study-planner__remove"
-                  onClick={() => onRemovePlan(plan.id)}
-                  aria-label={`Remove ${plan.subject} on ${plan.date} from ${plan.startTime} to ${plan.endTime}`}
-                >
-                  Remove
-                </button>
+                <div className="study-planner__item-actions">
+                  {canStartPlanNow(plan) && (
+                    <button
+                      type="button"
+                      className="btn btn--primary study-planner__start"
+                      onClick={() => onStartPlanFocus(plan)}
+                      aria-label={`Start planned focus for ${plan.subject}`}
+                    >
+                      Start focus now
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="study-planner__remove"
+                    onClick={() => onRemovePlan(plan.id)}
+                    aria-label={`Remove ${plan.subject} on ${plan.date} from ${plan.startTime} to ${plan.endTime}`}
+                  >
+                    Remove
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

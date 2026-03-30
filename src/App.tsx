@@ -15,7 +15,7 @@ import {
   nextStreakState,
   todayKey,
 } from "./streak";
-import type { Appearance, ThemeId } from "./types";
+import type { Appearance, StudyPlanItem, ThemeId } from "./types";
 import { COINS_PER_FOCUS_MINUTE, STREAK_BONUS_COINS } from "./types";
 
 type Phase = "idle" | "running";
@@ -53,25 +53,29 @@ function hhmmToMinutes(value: string) {
   return h * 60 + m;
 }
 
+function isPlanTimeMatch(plan: { date: string; startTime: string; endTime: string }, at: Date | null) {
+  if (!at) return false;
+  const year = at.getFullYear();
+  const month = String(at.getMonth() + 1).padStart(2, "0");
+  const day = String(at.getDate()).padStart(2, "0");
+  const dateKey = `${year}-${month}-${day}`;
+  if (plan.date !== dateKey) return false;
+
+  const startMin = hhmmToMinutes(plan.startTime);
+  const endMin = hhmmToMinutes(plan.endTime);
+  if (startMin == null || endMin == null) return false;
+
+  const atMin = at.getHours() * 60 + at.getMinutes();
+  const startWithLeeway = Math.max(0, startMin - PLANNED_TIME_LEEWAY_MIN);
+  const endWithLeeway = Math.min(23 * 60 + 59, endMin + PLANNED_TIME_LEEWAY_MIN);
+  return atMin >= startWithLeeway && atMin < endWithLeeway;
+}
+
 function isPlannedStudyTime(
   studyPlan: { date: string; startTime: string; endTime: string }[],
   startedAt: Date | null
 ) {
-  if (!startedAt) return false;
-  const year = startedAt.getFullYear();
-  const month = String(startedAt.getMonth() + 1).padStart(2, "0");
-  const day = String(startedAt.getDate()).padStart(2, "0");
-  const dateKey = `${year}-${month}-${day}`;
-  const startedAtMin = startedAt.getHours() * 60 + startedAt.getMinutes();
-  return studyPlan.some((item) => {
-    if (item.date !== dateKey) return false;
-    const startMin = hhmmToMinutes(item.startTime);
-    const endMin = hhmmToMinutes(item.endTime);
-    if (startMin == null || endMin == null) return false;
-    const startWithLeeway = Math.max(0, startMin - PLANNED_TIME_LEEWAY_MIN);
-    const endWithLeeway = Math.min(23 * 60 + 59, endMin + PLANNED_TIME_LEEWAY_MIN);
-    return startedAtMin >= startWithLeeway && startedAtMin < endWithLeeway;
-  });
+  return studyPlan.some((item) => isPlanTimeMatch(item, startedAt));
 }
 
 export function App() {
@@ -214,6 +218,50 @@ export function App() {
     setRemainingSec(goalSeconds);
     setPhase("running");
     persist({ ...stateRef.current, lastPreset: goalMin });
+
+    tickRef.current = window.setInterval(() => {
+      setRemainingSec((prev) => {
+        if (prev <= 1) {
+          clearTick();
+          setPhase("idle");
+          const g = startedGoalSecRef.current;
+          const startedAt = sessionStartedAtRef.current;
+          sessionStartedAtRef.current = null;
+          window.setTimeout(() => creditSession(g, startedAt), 0);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const startPlannedSession = (plan: StudyPlanItem) => {
+    if (phase === "running") return;
+    const startMin = hhmmToMinutes(plan.startTime);
+    const endMin = hhmmToMinutes(plan.endTime);
+    if (startMin == null || endMin == null || endMin <= startMin) {
+      showToast("Could not start this plan due to invalid times.");
+      return;
+    }
+    const durationMin = Math.max(1, Math.min(180, endMin - startMin));
+    const durationSec = durationMin * 60;
+    const cleanSubject = plan.subject.trim();
+    if (cleanSubject) {
+      setSessionLabel(cleanSubject);
+      sessionLabelRef.current = cleanSubject;
+    }
+    setGoalMin(durationMin);
+    setCustomMin(String(durationMin));
+    setAppTab("focus");
+    startedGoalSecRef.current = durationSec;
+    sessionStartedAtRef.current = new Date();
+    setRemainingSec(durationSec);
+    setPhase("running");
+    persist({
+      ...stateRef.current,
+      lastPreset: durationMin,
+      lastSessionLabel: cleanSubject || stateRef.current.lastSessionLabel,
+    });
 
     tickRef.current = window.setInterval(() => {
       setRemainingSec((prev) => {
@@ -563,6 +611,8 @@ export function App() {
           >
             <StudyPlanner
               plans={state.studyPlan}
+              canStartPlanNow={(plan) => phase === "idle" && isPlanTimeMatch(plan, new Date())}
+              onStartPlanFocus={startPlannedSession}
               onAddPlan={({ date, startTime, endTime, subject }) => {
                 const nextItem = { id: newStudyPlanId(), date, startTime, endTime, subject };
                 persist({ ...stateRef.current, studyPlan: [...stateRef.current.studyPlan, nextItem] });

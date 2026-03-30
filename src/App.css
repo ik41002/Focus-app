@@ -288,6 +288,20 @@
   padding: 0.65rem 0.75rem;
 }
 
+.study-planner__item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.study-planner__start {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.76rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .study-planner__item-main {
   min-width: 0;
 }
