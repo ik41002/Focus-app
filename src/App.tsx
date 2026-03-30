@@ -66,9 +66,22 @@ function isPlanTimeMatch(plan: { date: string; startTime: string; endTime: strin
   if (startMin == null || endMin == null) return false;
 
   const atMin = at.getHours() * 60 + at.getMinutes();
+  // Leeway only before start (e.g. start up to 5 min early). End time is strict.
   const startWithLeeway = Math.max(0, startMin - PLANNED_TIME_LEEWAY_MIN);
-  const endWithLeeway = Math.min(23 * 60 + 59, endMin + PLANNED_TIME_LEEWAY_MIN);
-  return atMin >= startWithLeeway && atMin < endWithLeeway;
+  return atMin >= startWithLeeway && atMin < endMin;
+}
+
+function isPlanExpired(plan: { date: string; endTime: string }, at: Date) {
+  const year = at.getFullYear();
+  const month = String(at.getMonth() + 1).padStart(2, "0");
+  const day = String(at.getDate()).padStart(2, "0");
+  const dateKey = `${year}-${month}-${day}`;
+  const nowMin = at.getHours() * 60 + at.getMinutes();
+  const endMin = hhmmToMinutes(plan.endTime);
+  if (endMin == null) return false;
+  if (plan.date < dateKey) return true;
+  if (plan.date > dateKey) return false;
+  return nowMin >= endMin;
 }
 
 function isPlannedStudyTime(
@@ -76,6 +89,13 @@ function isPlannedStudyTime(
   startedAt: Date | null
 ) {
   return studyPlan.some((item) => isPlanTimeMatch(item, startedAt));
+}
+
+function findMatchingPlannedIndex(
+  studyPlan: { date: string; startTime: string; endTime: string }[],
+  startedAt: Date | null
+) {
+  return studyPlan.findIndex((item) => isPlanTimeMatch(item, startedAt));
 }
 
 export function App() {
@@ -175,6 +195,8 @@ export function App() {
       const streakInfo = nextStreakState(s.streakDays, s.lastFocusDate, todayKey());
       const bonus = streakInfo.streakJustIncreased ? STREAK_BONUS_COINS : 0;
       const isPlanned = isPlannedStudyTime(s.studyPlan, startedAt);
+      const matchedPlanIdx = findMatchingPlannedIndex(s.studyPlan, startedAt);
+      const matchedPlan = matchedPlanIdx >= 0 ? s.studyPlan[matchedPlanIdx] : null;
       const earned = (baseCoins + bonus) * (isPlanned ? 2 : 1);
       const label = sessionLabelRef.current.trim();
       const entry = {
@@ -184,6 +206,13 @@ export function App() {
         label,
       };
 
+      const nextStudyPlan =
+        matchedPlanIdx >= 0
+          ? s.studyPlan.filter((_, idx) => idx !== matchedPlanIdx)
+          : s.studyPlan;
+      const nextCompletedStudyPlan =
+        matchedPlan != null ? [...s.completedStudyPlan, matchedPlan] : s.completedStudyPlan;
+
       persist({
         ...s,
         totalFocusSeconds: s.totalFocusSeconds + focusedSeconds,
@@ -192,6 +221,8 @@ export function App() {
         lastFocusDate: streakInfo.lastFocusDate,
         sessions: [...s.sessions, entry],
         lastSessionLabel: label,
+        studyPlan: nextStudyPlan,
+        completedStudyPlan: nextCompletedStudyPlan,
       });
 
       setCelebrate(true);
@@ -300,6 +331,28 @@ export function App() {
   };
 
   useEffect(() => () => clearTick(), [clearTick]);
+
+  useEffect(() => {
+    const moveForgottenPlans = () => {
+      if (phase === "running") return;
+      const s = stateRef.current;
+      if (s.studyPlan.length === 0) return;
+      const now = new Date();
+      const forgotten = s.studyPlan.filter((item) => isPlanExpired(item, now));
+      if (forgotten.length === 0) return;
+      const active = s.studyPlan.filter((item) => !isPlanExpired(item, now));
+      persist({
+        ...s,
+        studyPlan: active,
+        forgottenStudyPlan: [...s.forgottenStudyPlan, ...forgotten],
+      });
+      showToast(`${forgotten.length} planned block${forgotten.length === 1 ? "" : "s"} moved to forgotten.`);
+    };
+
+    moveForgottenPlans();
+    const t = window.setInterval(moveForgottenPlans, 30000);
+    return () => window.clearInterval(t);
+  }, [persist, phase, showToast]);
 
   const progress =
     phase === "running" && startedGoalSecRef.current > 0
@@ -611,6 +664,8 @@ export function App() {
           >
             <StudyPlanner
               plans={state.studyPlan}
+              completedPlans={state.completedStudyPlan}
+              forgottenPlans={state.forgottenStudyPlan}
               canStartPlanNow={(plan) => phase === "idle" && isPlanTimeMatch(plan, new Date())}
               onStartPlanFocus={startPlannedSession}
               onAddPlan={({ date, startTime, endTime, subject }) => {
@@ -624,6 +679,20 @@ export function App() {
                 if (next.length === before.length) return;
                 persist({ ...stateRef.current, studyPlan: next });
                 showToast("Removed study block.");
+              }}
+              onRemoveCompletedPlan={(id) => {
+                const before = stateRef.current.completedStudyPlan;
+                const next = before.filter((item) => item.id !== id);
+                if (next.length === before.length) return;
+                persist({ ...stateRef.current, completedStudyPlan: next });
+                showToast("Removed completed study block.");
+              }}
+              onRemoveForgottenPlan={(id) => {
+                const before = stateRef.current.forgottenStudyPlan;
+                const next = before.filter((item) => item.id !== id);
+                if (next.length === before.length) return;
+                persist({ ...stateRef.current, forgottenStudyPlan: next });
+                showToast("Removed forgotten study block.");
               }}
             />
           </div>
