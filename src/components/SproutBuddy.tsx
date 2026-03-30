@@ -1,11 +1,46 @@
+import { useEffect, useState } from "react";
+
 export type BuddyMood = "waiting" | "content" | "radiant";
 
-export function SproutBuddy({ mood }: { mood: BuddyMood }) {
+export function SproutBuddy({
+  mood,
+  interactive = false,
+  onTap,
+}: {
+  mood: BuddyMood;
+  interactive?: boolean;
+  onTap?: () => void;
+}) {
+  const [isWaving, setIsWaving] = useState(false);
+
+  useEffect(() => {
+    if (!isWaving) return;
+    const t = window.setTimeout(() => setIsWaving(false), 900);
+    return () => window.clearTimeout(t);
+  }, [isWaving]);
+
+  const handleTap = () => {
+    if (!interactive) return;
+    setIsWaving(true);
+    onTap?.();
+  };
+
   return (
     <div
-      className={`sprout-buddy sprout-buddy--${mood}`}
-      role="img"
-      aria-label={`Sprout buddy mood: ${mood}`}
+      className={`sprout-buddy sprout-buddy--${mood} ${isWaving ? "sprout-buddy--wave" : ""} ${
+        interactive ? "sprout-buddy--interactive" : ""
+      }`}
+      role={interactive ? "button" : "img"}
+      tabIndex={interactive ? 0 : -1}
+      aria-label={interactive ? "Tap Sprout buddy" : `Sprout buddy mood: ${mood}`}
+      onClick={handleTap}
+      onKeyDown={(e) => {
+        if (!interactive) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleTap();
+        }
+      }}
     >
       <svg
         className="sprout-buddy__svg"
@@ -38,8 +73,10 @@ export function SproutBuddy({ mood }: { mood: BuddyMood }) {
           />
 
           <circle className="sprout-buddy__face" cx="110" cy="142" r="34" />
-          <circle className="sprout-buddy__eye" cx="98" cy="138" r="3.2" />
-          <circle className="sprout-buddy__eye" cx="122" cy="138" r="3.2" />
+          <g className="sprout-buddy__eyes">
+            <circle className="sprout-buddy__eye" cx="98" cy="138" r="3.2" />
+            <circle className="sprout-buddy__eye" cx="122" cy="138" r="3.2" />
+          </g>
           <path className="sprout-buddy__mouth" d="M98 151 Q110 160 122 151" />
           <circle className="sprout-buddy__blush" cx="88" cy="146" r="4.2" />
           <circle className="sprout-buddy__blush" cx="132" cy="146" r="4.2" />
