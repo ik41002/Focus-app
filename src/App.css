@@ -873,7 +873,31 @@
   transform: rotate(-5deg);
 }
 
+.sprout-buddy--fine .sprout-buddy__leaf--left {
+  transform: rotate(2deg);
+}
+
+.sprout-buddy--fine .sprout-buddy__leaf--right {
+  transform: rotate(-2deg);
+}
+
+.sprout-buddy--happy .sprout-buddy__leaf--left {
+  transform: rotate(-2deg) translateY(-1px);
+}
+
+.sprout-buddy--happy .sprout-buddy__leaf--right {
+  transform: rotate(2deg) translateY(-1px);
+}
+
 .sprout-buddy--radiant {
+  animation: sprout-pop 0.8s ease;
+}
+
+.sprout-buddy--excited {
+  animation: sprout-pop 0.8s ease;
+}
+
+.sprout-buddy--ecstatic {
   animation: sprout-pop 0.8s ease;
 }
 
@@ -881,16 +905,48 @@
   animation-duration: 6s;
 }
 
+.sprout-buddy--excited .sprout-buddy__body-group {
+  animation-duration: 5.5s;
+}
+
+.sprout-buddy--ecstatic .sprout-buddy__body-group {
+  animation-duration: 5s;
+}
+
 .sprout-buddy--radiant .sprout-buddy__leaf--left {
   transform: rotate(-8deg) translateY(-3px);
+}
+
+.sprout-buddy--excited .sprout-buddy__leaf--left {
+  transform: rotate(-7deg) translateY(-2px);
+}
+
+.sprout-buddy--ecstatic .sprout-buddy__leaf--left {
+  transform: rotate(-10deg) translateY(-4px);
 }
 
 .sprout-buddy--radiant .sprout-buddy__leaf--right {
   transform: rotate(8deg) translateY(-3px);
 }
 
+.sprout-buddy--excited .sprout-buddy__leaf--right {
+  transform: rotate(7deg) translateY(-2px);
+}
+
+.sprout-buddy--ecstatic .sprout-buddy__leaf--right {
+  transform: rotate(10deg) translateY(-4px);
+}
+
 .sprout-buddy--radiant .sprout-buddy__face {
   filter: drop-shadow(0 0 12px color-mix(in srgb, var(--color-accent) 38%, transparent));
+}
+
+.sprout-buddy--excited .sprout-buddy__face {
+  filter: drop-shadow(0 0 9px color-mix(in srgb, var(--color-accent) 32%, transparent));
+}
+
+.sprout-buddy--ecstatic .sprout-buddy__face {
+  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--color-accent) 44%, transparent));
 }
 
 @keyframes sprout-bob-cycle {

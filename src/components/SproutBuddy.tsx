@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export type BuddyMood = "waiting" | "content" | "radiant";
+export type BuddyMood = "waiting" | "fine" | "happy" | "excited" | "ecstatic" | "content" | "radiant";
 
 export function SproutBuddy({
   mood,

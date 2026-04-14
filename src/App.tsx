@@ -165,6 +165,8 @@ export function App() {
   const [sessionLabel, setSessionLabel] = useState(() => loadState().lastSessionLabel);
   const startedGoalSecRef = useRef(0);
   const sessionStartedAtRef = useRef<Date | null>(null);
+  /** Wall-clock end time (ms) so the countdown stays accurate when the tab is backgrounded. */
+  const sessionEndsAtRef = useRef<number | null>(null);
   const tickRef = useRef<number | null>(null);
   const sessionLabelRef = useRef(sessionLabel);
   sessionLabelRef.current = sessionLabel;
@@ -285,6 +287,38 @@ export function App() {
     [persist, showToast]
   );
 
+  const syncRunningTimerFromClock = useCallback(() => {
+    const endMs = sessionEndsAtRef.current;
+    if (endMs == null) return;
+    const rem = Math.max(0, Math.ceil((endMs - Date.now()) / 1000));
+    setRemainingSec(rem);
+    if (rem <= 0) {
+      clearTick();
+      sessionEndsAtRef.current = null;
+      setPhase("idle");
+      const g = startedGoalSecRef.current;
+      const sessionStart = sessionStartedAtRef.current;
+      window.setTimeout(() => creditSession(g, sessionStart), 0);
+    }
+  }, [clearTick, creditSession]);
+
+  const armFocusInterval = useCallback(() => {
+    clearTick();
+    const goal = startedGoalSecRef.current;
+    sessionEndsAtRef.current = Date.now() + goal * 1000;
+    tickRef.current = window.setInterval(syncRunningTimerFromClock, 1000);
+  }, [clearTick, syncRunningTimerFromClock]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && sessionEndsAtRef.current != null) {
+        syncRunningTimerFromClock();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [syncRunningTimerFromClock]);
+
   const startSession = () => {
     if (phase === "running") return;
     startedGoalSecRef.current = goalSeconds;
@@ -293,19 +327,7 @@ export function App() {
     setPhase("running");
     persist({ ...stateRef.current, lastPreset: goalMin });
 
-    tickRef.current = window.setInterval(() => {
-      setRemainingSec((prev) => {
-        if (prev <= 1) {
-          clearTick();
-          setPhase("idle");
-          const g = startedGoalSecRef.current;
-          const sessionStart = sessionStartedAtRef.current;
-          window.setTimeout(() => creditSession(g, sessionStart), 0);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    armFocusInterval();
   };
 
   const startPlannedSession = (plan: StudyPlanItem) => {
@@ -336,25 +358,17 @@ export function App() {
       lastSessionLabel: cleanSubject || stateRef.current.lastSessionLabel,
     });
 
-    tickRef.current = window.setInterval(() => {
-      setRemainingSec((prev) => {
-        if (prev <= 1) {
-          clearTick();
-          setPhase("idle");
-          const g = startedGoalSecRef.current;
-          const sessionStart = sessionStartedAtRef.current;
-          window.setTimeout(() => creditSession(g, sessionStart), 0);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    armFocusInterval();
   };
 
   const endSessionEarly = () => {
     if (phase !== "running") return;
     clearTick();
-    const elapsed = startedGoalSecRef.current - remainingSec;
+    const endMs = sessionEndsAtRef.current;
+    sessionEndsAtRef.current = null;
+    const remFromClock =
+      endMs != null ? Math.max(0, Math.ceil((endMs - Date.now()) / 1000)) : remainingSec;
+    const elapsed = startedGoalSecRef.current - remFromClock;
     setPhase("idle");
     setRemainingSec(0);
     creditSession(elapsed, sessionStartedAtRef.current);
@@ -363,6 +377,7 @@ export function App() {
   const cancelSession = () => {
     if (phase !== "running") return;
     clearTick();
+    sessionEndsAtRef.current = null;
     sessionStartedAtRef.current = null;
     setPhase("idle");
     setRemainingSec(0);
