@@ -18,7 +18,7 @@ import {
 import type { Appearance, StudyPlanItem, ThemeId } from "./types";
 import { COINS_PER_FOCUS_MINUTE, STREAK_BONUS_COINS } from "./types";
 
-type Phase = "idle" | "running";
+type Phase = "idle" | "running" | "paused";
 type AppTab = "focus" | "history" | "planner" | "buddy";
 
 const PRESETS = [25, 45, 60] as const;
@@ -302,10 +302,9 @@ export function App() {
     }
   }, [clearTick, creditSession]);
 
-  const armFocusInterval = useCallback(() => {
+  const armFocusInterval = useCallback((durationSec: number) => {
     clearTick();
-    const goal = startedGoalSecRef.current;
-    sessionEndsAtRef.current = Date.now() + goal * 1000;
+    sessionEndsAtRef.current = Date.now() + durationSec * 1000;
     tickRef.current = window.setInterval(syncRunningTimerFromClock, 1000);
   }, [clearTick, syncRunningTimerFromClock]);
 
@@ -320,18 +319,18 @@ export function App() {
   }, [syncRunningTimerFromClock]);
 
   const startSession = () => {
-    if (phase === "running") return;
+    if (phase !== "idle") return;
     startedGoalSecRef.current = goalSeconds;
     sessionStartedAtRef.current = new Date();
     setRemainingSec(goalSeconds);
     setPhase("running");
     persist({ ...stateRef.current, lastPreset: goalMin });
 
-    armFocusInterval();
+    armFocusInterval(goalSeconds);
   };
 
   const startPlannedSession = (plan: StudyPlanItem) => {
-    if (phase === "running" || plan.completed || plan.missed) return;
+    if (phase !== "idle" || plan.completed || plan.missed) return;
     const startMin = hhmmToMinutes(plan.startTime);
     const endMin = hhmmToMinutes(plan.endTime);
     if (startMin == null || endMin == null || endMin <= startMin) {
@@ -358,36 +357,56 @@ export function App() {
       lastSessionLabel: cleanSubject || stateRef.current.lastSessionLabel,
     });
 
-    armFocusInterval();
+    armFocusInterval(durationSec);
   };
 
   const endSessionEarly = () => {
-    if (phase !== "running") return;
+    if (phase === "idle") return;
     clearTick();
     const endMs = sessionEndsAtRef.current;
     sessionEndsAtRef.current = null;
-    const remFromClock =
-      endMs != null ? Math.max(0, Math.ceil((endMs - Date.now()) / 1000)) : remainingSec;
+    const remFromClock = phase === "running" && endMs != null
+      ? Math.max(0, Math.ceil((endMs - Date.now()) / 1000))
+      : remainingSec;
     const elapsed = startedGoalSecRef.current - remFromClock;
     setPhase("idle");
     setRemainingSec(0);
     creditSession(elapsed, sessionStartedAtRef.current);
   };
 
-  const cancelSession = () => {
+  const pauseSession = () => {
     if (phase !== "running") return;
+    clearTick();
+    const endMs = sessionEndsAtRef.current;
+    sessionEndsAtRef.current = null;
+    const remFromClock =
+      endMs != null ? Math.max(0, Math.ceil((endMs - Date.now()) / 1000)) : remainingSec;
+    setRemainingSec(remFromClock);
+    setPhase("paused");
+    showToast("Timer paused.");
+  };
+
+  const resumeSession = () => {
+    if (phase !== "paused") return;
+    setPhase("running");
+    armFocusInterval(remainingSec);
+    showToast("Back to focus.");
+  };
+
+  const cancelSession = () => {
+    if (phase === "idle") return;
     clearTick();
     sessionEndsAtRef.current = null;
     sessionStartedAtRef.current = null;
     setPhase("idle");
     setRemainingSec(0);
-    showToast("Session paused — your progress wasn’t saved.");
+    showToast("Session cancelled — your progress wasn’t saved.");
   };
 
   useEffect(() => () => clearTick(), [clearTick]);
 
   const progress =
-    phase === "running" && startedGoalSecRef.current > 0
+    phase !== "idle" && startedGoalSecRef.current > 0
       ? 1 - remainingSec / startedGoalSecRef.current
       : 0;
   const strokeDashoffset = CIRC * (1 - Math.min(1, Math.max(0, progress)));
@@ -398,7 +417,7 @@ export function App() {
   };
 
   const displayTime =
-    phase === "running" ? remainingSec : goalSeconds;
+    phase !== "idle" ? remainingSec : goalSeconds;
 
   return (
     <>
@@ -434,8 +453,8 @@ export function App() {
             id="tab-history"
             aria-selected={appTab === "history"}
             aria-controls="panel-history"
-            disabled={phase === "running"}
-            title={phase === "running" ? "Finish or cancel your session to view history" : undefined}
+            disabled={phase !== "idle"}
+            title={phase !== "idle" ? "Finish or cancel your session to view history" : undefined}
             className={`app-tabs__btn ${appTab === "history" ? "app-tabs__btn--active" : ""}`}
             onClick={() => setAppTab("history")}
           >
@@ -458,8 +477,8 @@ export function App() {
             id="tab-buddy"
             aria-selected={appTab === "buddy"}
             aria-controls="panel-buddy"
-            disabled={phase === "running"}
-            title={phase === "running" ? "Finish or cancel your session to visit your buddy" : undefined}
+            disabled={phase !== "idle"}
+            title={phase !== "idle" ? "Finish or cancel your session to visit your buddy" : undefined}
             className={`app-tabs__btn ${appTab === "buddy" ? "app-tabs__btn--active" : ""}`}
             onClick={() => setAppTab("buddy")}
           >
@@ -499,7 +518,7 @@ export function App() {
               className="focus-topic__input"
               placeholder="e.g. Reading, deep work, course…"
               maxLength={120}
-              disabled={phase === "running"}
+              disabled={phase !== "idle"}
               value={sessionLabel}
               onChange={(e) => setSessionLabel(e.target.value)}
               onBlur={(e) =>
@@ -513,7 +532,7 @@ export function App() {
                 key={m}
                 type="button"
                 className={`preset-btn ${goalMin === m ? "preset-btn--active" : ""}`}
-                disabled={phase === "running"}
+                disabled={phase !== "idle"}
                 onClick={() => {
                   setGoalMin(m);
                   setCustomMin("");
@@ -532,7 +551,7 @@ export function App() {
               min={1}
               max={180}
               placeholder="minutes"
-              disabled={phase === "running"}
+              disabled={phase !== "idle"}
               value={customMin}
               onChange={(e) => {
                 const v = e.target.value;
@@ -556,16 +575,16 @@ export function App() {
                   cy="50"
                   r={RADIUS}
                   strokeDasharray={CIRC}
-                  strokeDashoffset={phase === "running" ? strokeDashoffset : 0}
+                  strokeDashoffset={phase !== "idle" ? strokeDashoffset : 0}
                   style={{
-                    opacity: phase === "running" ? 1 : 0.35,
+                    opacity: phase !== "idle" ? 1 : 0.35,
                   }}
                 />
               </svg>
               <div className="timer-ring__center">
                 <span className="timer-ring__time">{formatMMSS(displayTime)}</span>
                 <span className="timer-ring__sub">
-                  {phase === "running" ? "remaining" : "planned focus"}
+                  {phase === "running" ? "remaining" : phase === "paused" ? "paused" : "planned focus"}
                 </span>
               </div>
             </div>
@@ -580,10 +599,19 @@ export function App() {
               <>
                 <div className="actions__row">
                   <button type="button" className="btn btn--primary" disabled>
-                    Focusing…
+                    {phase === "running" ? "Focusing…" : "Paused"}
                   </button>
                 </div>
                 <div className="actions__row">
+                  {phase === "running" ? (
+                    <button type="button" className="btn btn--ghost" onClick={pauseSession}>
+                      Pause
+                    </button>
+                  ) : (
+                    <button type="button" className="btn btn--ghost" onClick={resumeSession}>
+                      Resume
+                    </button>
+                  )}
                   <button type="button" className="btn btn--ghost" onClick={endSessionEarly}>
                     Finish &amp; save
                   </button>
