@@ -1215,6 +1215,48 @@
   cursor: not-allowed;
 }
 
+.focus-topic-rename__hint {
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.focus-topic-rename__row {
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: 1fr 1fr 6.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.focus-topic-rename__count {
+  text-align: center;
+}
+
+.focus-topic-rename__btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.session-rename-card {
+  position: relative;
+  z-index: 1;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.1rem 1.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.session-rename-card h2 {
+  margin: 0 0 0.85rem;
+  font-size: 1rem;
+}
+
+@media (max-width: 700px) {
+  .focus-topic-rename__row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .presets {
   display: flex;
   flex-wrap: wrap;

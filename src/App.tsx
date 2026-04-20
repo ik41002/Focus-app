@@ -163,6 +163,9 @@ export function App() {
   const [celebrate, setCelebrate] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [sessionLabel, setSessionLabel] = useState(() => loadState().lastSessionLabel);
+  const [renameTodayFrom, setRenameTodayFrom] = useState("");
+  const [renameTodayTo, setRenameTodayTo] = useState("");
+  const [renameTodayCount, setRenameTodayCount] = useState("2");
   const startedGoalSecRef = useRef(0);
   const sessionStartedAtRef = useRef<Date | null>(null);
   /** Wall-clock end time (ms) so the countdown stays accurate when the tab is backgrounded. */
@@ -242,6 +245,61 @@ export function App() {
     setToast(msg);
     window.setTimeout(() => setToast(null), 3200);
   }, []);
+
+  const renameTodaySessionLabels = useCallback(() => {
+    const from = renameTodayFrom.trim();
+    const to = renameTodayTo.trim();
+    const requestedCount = Number.parseInt(renameTodayCount, 10);
+    if (!from || !to) {
+      showToast("Enter both the current and new topic names.");
+      return;
+    }
+    if (Number.isNaN(requestedCount) || requestedCount < 1) {
+      showToast("Enter how many recent sessions to rename (at least 1).");
+      return;
+    }
+    if (normalizeSubject(from) === normalizeSubject(to)) {
+      showToast("Those two topic names are the same.");
+      return;
+    }
+
+    const nowKey = todayKey();
+    const matchingIndexes = stateRef.current.sessions
+      .map((session, idx) =>
+        session.date === nowKey && normalizeSubject(session.label) === normalizeSubject(from)
+          ? idx
+          : -1
+      )
+      .filter((idx) => idx >= 0);
+    const indexesToRename = new Set(matchingIndexes.slice(-requestedCount));
+    const renamedCount = indexesToRename.size;
+
+    if (renamedCount < 1) {
+      showToast(`No "${from}" sessions found for today.`);
+      return;
+    }
+    const nextSessions = stateRef.current.sessions.map((session, idx) =>
+      indexesToRename.has(idx) ? { ...session, label: to } : session
+    );
+
+    const nextLastSessionLabel =
+      normalizeSubject(stateRef.current.lastSessionLabel) === normalizeSubject(from)
+        ? to
+        : stateRef.current.lastSessionLabel;
+    persist({
+      ...stateRef.current,
+      sessions: nextSessions,
+      lastSessionLabel: nextLastSessionLabel,
+    });
+    setSessionLabel((prev) => (normalizeSubject(prev) === normalizeSubject(from) ? to : prev));
+    setRenameTodayFrom("");
+    setRenameTodayTo("");
+    showToast(
+      `Renamed ${renamedCount} most recent "${from}" session${
+        renamedCount === 1 ? "" : "s"
+      } from today.`
+    );
+  }, [persist, renameTodayCount, renameTodayFrom, renameTodayTo, showToast]);
 
   const creditSession = useCallback(
     (focusedSeconds: number, startedAtFromCaller: Date | null) => {
@@ -852,6 +910,53 @@ export function App() {
               }}
             />
           </div>
+        )}
+
+        {appTab === "focus" && (
+          <section className="session-rename-card" aria-label="Rename recent focus sessions">
+            <h2>Rename recent sessions</h2>
+            <p className="focus-topic-rename__hint">Fix only today's most recent matching labels.</p>
+            <div className="focus-topic-rename__row">
+              <input
+                type="text"
+                className="focus-topic__input"
+                placeholder="Rename from (today only)"
+                maxLength={120}
+                disabled={phase !== "idle"}
+                value={renameTodayFrom}
+                onChange={(e) => setRenameTodayFrom(e.target.value)}
+              />
+              <input
+                type="text"
+                className="focus-topic__input"
+                placeholder="Rename to"
+                maxLength={120}
+                disabled={phase !== "idle"}
+                value={renameTodayTo}
+                onChange={(e) => setRenameTodayTo(e.target.value)}
+              />
+              <input
+                type="number"
+                className="focus-topic__input focus-topic-rename__count"
+                min={1}
+                max={20}
+                step={1}
+                placeholder="Count"
+                aria-label="How many most recent matching sessions to rename"
+                disabled={phase !== "idle"}
+                value={renameTodayCount}
+                onChange={(e) => setRenameTodayCount(e.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn btn--ghost focus-topic-rename__btn"
+              onClick={renameTodaySessionLabels}
+              disabled={phase !== "idle"}
+            >
+              Rename recent matching sessions (today)
+            </button>
+          </section>
         )}
 
         <button
