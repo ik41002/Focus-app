@@ -13,6 +13,15 @@ export interface FocusSession {
   label: string;
 }
 
+export interface ActiveSessionState {
+  phase: "running" | "paused";
+  goalSec: number;
+  remainingSec: number;
+  startedAtIso: string;
+  endsAtMs: number | null;
+  label: string;
+}
+
 export interface StudyPlanItem {
   id: string;
   /** Local calendar day YYYY-MM-DD */
@@ -29,7 +38,7 @@ export interface StudyPlanItem {
 }
 
 export interface PersistedState {
-  version: 8;
+  version: 9;
   totalFocusSeconds: number;
   sparkleCoins: number;
   streakDays: number;
@@ -47,6 +56,8 @@ export interface PersistedState {
   studyPlanLifetimeCheckoffs: number;
   /** Times you marked a planned block missed (only increases when checking missed on, not on uncheck) */
   studyPlanLifetimeMisses: number;
+  /** Session in progress, used to recover after sleep/reload */
+  activeSession: ActiveSessionState | null;
 }
 
 export const COINS_PER_FOCUS_MINUTE = 2;

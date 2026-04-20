@@ -10,7 +10,7 @@ const defaultAppearance: Appearance = {
 export const APP_FONT_STACK = '"Quicksand", system-ui, sans-serif';
 
 export const defaultState: PersistedState = {
-  version: 8,
+  version: 9,
   totalFocusSeconds: 0,
   sparkleCoins: 0,
   streakDays: 0,
@@ -22,6 +22,7 @@ export const defaultState: PersistedState = {
   studyPlan: [],
   studyPlanLifetimeCheckoffs: 0,
   studyPlanLifetimeMisses: 0,
+  activeSession: null,
 };
 
 function migrate(raw: unknown): PersistedState {
@@ -29,7 +30,17 @@ function migrate(raw: unknown): PersistedState {
   if (!raw || typeof raw !== "object") return base;
   const p = raw as Record<string, unknown>;
   const ver = p.version;
-  if (ver !== 1 && ver !== 2 && ver !== 3 && ver !== 4 && ver !== 5 && ver !== 6 && ver !== 7 && ver !== 8)
+  if (
+    ver !== 1 &&
+    ver !== 2 &&
+    ver !== 3 &&
+    ver !== 4 &&
+    ver !== 5 &&
+    ver !== 6 &&
+    ver !== 7 &&
+    ver !== 8 &&
+    ver !== 9
+  )
     return base;
 
   const appearance = {
@@ -56,6 +67,7 @@ function migrate(raw: unknown): PersistedState {
       studyPlan: [],
       studyPlanLifetimeCheckoffs: 0,
       studyPlanLifetimeMisses: 0,
+      activeSession: null,
     };
   }
 
@@ -90,6 +102,27 @@ function migrate(raw: unknown): PersistedState {
     typeof p.studyPlanLifetimeCheckoffs === "number" ? p.studyPlanLifetimeCheckoffs : 0;
   const studyPlanLifetimeMisses =
     typeof p.studyPlanLifetimeMisses === "number" ? p.studyPlanLifetimeMisses : 0;
+  const activeSessionRaw =
+    typeof p.activeSession === "object" && p.activeSession !== null
+      ? (p.activeSession as Record<string, unknown>)
+      : null;
+  const activeSession =
+    activeSessionRaw &&
+    (activeSessionRaw.phase === "running" || activeSessionRaw.phase === "paused") &&
+    typeof activeSessionRaw.goalSec === "number" &&
+    typeof activeSessionRaw.remainingSec === "number" &&
+    typeof activeSessionRaw.startedAtIso === "string" &&
+    (typeof activeSessionRaw.endsAtMs === "number" || activeSessionRaw.endsAtMs === null) &&
+    typeof activeSessionRaw.label === "string"
+      ? {
+          phase: activeSessionRaw.phase,
+          goalSec: activeSessionRaw.goalSec,
+          remainingSec: activeSessionRaw.remainingSec,
+          startedAtIso: activeSessionRaw.startedAtIso,
+          endsAtMs: activeSessionRaw.endsAtMs,
+          label: activeSessionRaw.label,
+        }
+      : null;
   return {
     ...base,
     totalFocusSeconds: typeof p.totalFocusSeconds === "number" ? p.totalFocusSeconds : 0,
@@ -106,7 +139,8 @@ function migrate(raw: unknown): PersistedState {
     studyPlan,
     studyPlanLifetimeCheckoffs,
     studyPlanLifetimeMisses,
-    version: 8,
+    activeSession,
+    version: 9,
   };
 }
 

@@ -231,6 +231,13 @@ export function App() {
     saveState(next);
   }, []);
 
+  const persistActiveSession = useCallback(
+    (activeSession: typeof state.activeSession) => {
+      persist({ ...stateRef.current, activeSession });
+    },
+    [persist]
+  );
+
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     window.setTimeout(() => setToast(null), 3200);
@@ -296,11 +303,12 @@ export function App() {
       clearTick();
       sessionEndsAtRef.current = null;
       setPhase("idle");
+      persistActiveSession(null);
       const g = startedGoalSecRef.current;
       const sessionStart = sessionStartedAtRef.current;
       window.setTimeout(() => creditSession(g, sessionStart), 0);
     }
-  }, [clearTick, creditSession]);
+  }, [clearTick, creditSession, persistActiveSession]);
 
   const armFocusInterval = useCallback((durationSec: number) => {
     clearTick();
@@ -318,6 +326,45 @@ export function App() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [syncRunningTimerFromClock]);
 
+  useEffect(() => {
+    const saved = state.activeSession;
+    if (!saved) return;
+
+    startedGoalSecRef.current = Math.max(1, saved.goalSec);
+    sessionStartedAtRef.current = new Date(saved.startedAtIso);
+    sessionLabelRef.current = saved.label;
+    setSessionLabel(saved.label);
+
+    if (saved.phase === "paused") {
+      setRemainingSec(Math.max(0, saved.remainingSec));
+      setPhase("paused");
+      return;
+    }
+
+    const endMs = saved.endsAtMs;
+    if (endMs == null) {
+      persistActiveSession(null);
+      return;
+    }
+
+    const rem = Math.max(0, Math.ceil((endMs - Date.now()) / 1000));
+    if (rem <= 0) {
+      persistActiveSession(null);
+      setPhase("idle");
+      setRemainingSec(0);
+      window.setTimeout(
+        () => creditSession(startedGoalSecRef.current, sessionStartedAtRef.current),
+        0
+      );
+      return;
+    }
+
+    sessionEndsAtRef.current = endMs;
+    setRemainingSec(rem);
+    setPhase("running");
+    tickRef.current = window.setInterval(syncRunningTimerFromClock, 1000);
+  }, [creditSession, persistActiveSession, state.activeSession, syncRunningTimerFromClock]);
+
   const startSession = () => {
     if (phase !== "idle") return;
     startedGoalSecRef.current = goalSeconds;
@@ -325,6 +372,14 @@ export function App() {
     setRemainingSec(goalSeconds);
     setPhase("running");
     persist({ ...stateRef.current, lastPreset: goalMin });
+    persistActiveSession({
+      phase: "running",
+      goalSec: goalSeconds,
+      remainingSec: goalSeconds,
+      startedAtIso: sessionStartedAtRef.current.toISOString(),
+      endsAtMs: Date.now() + goalSeconds * 1000,
+      label: sessionLabelRef.current.trim(),
+    });
 
     armFocusInterval(goalSeconds);
   };
@@ -356,6 +411,14 @@ export function App() {
       lastPreset: durationMin,
       lastSessionLabel: cleanSubject || stateRef.current.lastSessionLabel,
     });
+    persistActiveSession({
+      phase: "running",
+      goalSec: durationSec,
+      remainingSec: durationSec,
+      startedAtIso: sessionStartedAtRef.current.toISOString(),
+      endsAtMs: Date.now() + durationSec * 1000,
+      label: sessionLabelRef.current.trim(),
+    });
 
     armFocusInterval(durationSec);
   };
@@ -371,6 +434,7 @@ export function App() {
     const elapsed = startedGoalSecRef.current - remFromClock;
     setPhase("idle");
     setRemainingSec(0);
+    persistActiveSession(null);
     creditSession(elapsed, sessionStartedAtRef.current);
   };
 
@@ -383,12 +447,29 @@ export function App() {
       endMs != null ? Math.max(0, Math.ceil((endMs - Date.now()) / 1000)) : remainingSec;
     setRemainingSec(remFromClock);
     setPhase("paused");
+    persistActiveSession({
+      phase: "paused",
+      goalSec: startedGoalSecRef.current,
+      remainingSec: remFromClock,
+      startedAtIso: (sessionStartedAtRef.current ?? new Date()).toISOString(),
+      endsAtMs: null,
+      label: sessionLabelRef.current.trim(),
+    });
     showToast("Timer paused.");
   };
 
   const resumeSession = () => {
     if (phase !== "paused") return;
+    const resumedEndMs = Date.now() + remainingSec * 1000;
     setPhase("running");
+    persistActiveSession({
+      phase: "running",
+      goalSec: startedGoalSecRef.current,
+      remainingSec,
+      startedAtIso: (sessionStartedAtRef.current ?? new Date()).toISOString(),
+      endsAtMs: resumedEndMs,
+      label: sessionLabelRef.current.trim(),
+    });
     armFocusInterval(remainingSec);
     showToast("Back to focus.");
   };
@@ -400,6 +481,7 @@ export function App() {
     sessionStartedAtRef.current = null;
     setPhase("idle");
     setRemainingSec(0);
+    persistActiveSession(null);
     showToast("Session cancelled — your progress wasn’t saved.");
   };
 
